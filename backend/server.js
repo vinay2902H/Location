@@ -9,6 +9,7 @@ const path = require('path');
 const socketService = require('./services/socketService');
 const locationRoutes = require('./routes/locationRoutes');
 const authRoutes = require('./routes/authRoutes');
+const mappingRoutes = require('./routes/mappingRoutes');
 
 // Disable buffering so database operations fail quickly when offline
 mongoose.set('bufferCommands', false);
@@ -56,6 +57,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api', locationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', authRoutes);
+app.use('/api', mappingRoutes);
 
 // Environment variables
 const PORT = process.env.PORT || 5001;

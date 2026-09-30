@@ -1,6 +1,7 @@
 const Location = require('../models/Location');
 const UserActivity = require('../models/UserActivity');
 const User = require('../models/User');
+const ReceiverMapping = require('../models/ReceiverMapping');
 const mongoose = require('mongoose');
 const socketService = require('../services/socketService');
 
@@ -222,7 +223,27 @@ exports.getLocation = async (req, res) => {
     if (mongoose.connection.readyState === 1) {
       try {
         const query = {};
-        if (req.query.username) {
+        if (req.query.receiverUsername) {
+          const recName = req.query.receiverUsername.trim().toLowerCase();
+          const mapping = await ReceiverMapping.findOne({ receiverUsername: recName, status: 'active' }).lean();
+          const allowed = mapping ? mapping.senderUsernames : [];
+          if (!allowed || allowed.length === 0) {
+            return res.status(404).json({
+              message: `No senders are currently mapped to receiver @${recName} by admin.`
+            });
+          }
+          if (req.query.username) {
+            const requestedSender = req.query.username.trim();
+            if (!allowed.includes(requestedSender)) {
+              return res.status(403).json({
+                message: `Sender '${requestedSender}' is not permitted for receiver @${recName} by admin.`
+              });
+            }
+            query.username = requestedSender;
+          } else {
+            query.username = { $in: allowed };
+          }
+        } else if (req.query.username) {
           query.username = req.query.username.trim();
         } else if (req.query.email) {
           query.email = req.query.email.trim().toLowerCase();
@@ -274,10 +295,31 @@ exports.getLocation = async (req, res) => {
  */
 exports.getAllLocations = async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(200).json(inMemoryLocation ? [inMemoryLocation] : []);
+    let allowedSenders = null;
+    if (req.query.receiverUsername) {
+      const recName = req.query.receiverUsername.trim().toLowerCase();
+      if (mongoose.connection.readyState === 1) {
+        const mapping = await ReceiverMapping.findOne({ receiverUsername: recName, status: 'active' }).lean();
+        allowedSenders = mapping ? mapping.senderUsernames : [];
+      } else {
+        allowedSenders = [];
+      }
     }
-    const locations = await Location.find({}).sort({ timestamp: -1 }).lean();
+
+    if (mongoose.connection.readyState !== 1) {
+      let fallback = inMemoryLocation ? [inMemoryLocation] : [];
+      if (allowedSenders !== null) {
+        fallback = fallback.filter(loc => allowedSenders.includes(loc.username));
+      }
+      return res.status(200).json(fallback);
+    }
+
+    const query = {};
+    if (allowedSenders !== null) {
+      query.username = { $in: allowedSenders };
+    }
+
+    const locations = await Location.find(query).sort({ timestamp: -1 }).lean();
     return res.status(200).json(locations.map(loc => ({
       _id: loc._id ? loc._id.toString() : (loc.id ? loc.id.toString() : ''),
       userId: loc.userId ? loc.userId.toString() : null,

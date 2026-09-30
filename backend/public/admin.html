@@ -402,6 +402,199 @@
       font-size: 10px;
       color: #64748b;
     }
+
+    /* ── SENDER-TO-RECEIVER MAPPING STYLES ───────────────────────────────── */
+    .mapping-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      padding: 20px;
+    }
+    @media (max-width: 1080px) {
+      .mapping-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .form-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #94a3b8;
+    }
+    .form-input {
+      background: rgba(14, 20, 36, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-glow);
+    }
+    .senders-selector {
+      background: rgba(14, 20, 36, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px;
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sender-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+    .sender-item:hover {
+      background: rgba(99, 102, 241, 0.15);
+    }
+    .sender-item input[type="checkbox"] {
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    .perm-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #cbd5e1;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .perm-toggle input[type="checkbox"] {
+      accent-color: var(--emerald);
+      cursor: pointer;
+    }
+    .btn-submit-mapping {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: #fff;
+      border: none;
+      padding: 11px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    .btn-submit-mapping:hover {
+      box-shadow: 0 4px 16px var(--primary-glow);
+      transform: translateY(-1px);
+    }
+    .btn-clear-mapping {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #94a3b8;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-clear-mapping:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .sender-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(99, 102, 241, 0.18);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      color: #c7d2fe;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    .badge-status {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-active {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-paused {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .badge-perm {
+      background: rgba(6, 182, 212, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 600;
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .btn-delete {
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      color: #fda4af;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-delete:hover {
+      background: #f43f5e;
+      color: #fff;
+    }
+    .toast-msg {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .toast-success {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+    }
+    .toast-error {
+      background: rgba(244, 63, 94, 0.2);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: #fda4af;
+    }
   </style>
 </head>
 <body>
@@ -474,6 +667,16 @@
         </div>
         <div class="stat-icon" style="background:rgba(168,85,247,0.15); color:#c084fc;">⚡</div>
       </div>
+
+      <!-- Mapped Receivers -->
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">Mapped Receivers</span>
+          <span id="statMappedReceivers" class="stat-value" style="color:#a855f7;">0</span>
+          <span class="stat-sub">Active access rules</span>
+        </div>
+        <div class="stat-icon" style="background:rgba(168,85,247,0.15); color:#a855f7;">🔗</div>
+      </div>
     </div>
 
     <!-- MASTER RADAR MAP & LIVE EVENT FEED -->
@@ -498,6 +701,130 @@
         </div>
         <div id="adminStreamFeed" class="stream-feed">
           <div style="color:#64748b; text-align:center; padding:20px;">Awaiting live location packets…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SENDER-TO-RECEIVER MAPPING & PERMISSIONS SECTION ── -->
+    <div class="panel-card" id="mappingSection">
+      <div class="panel-header">
+        <span class="panel-title">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Sender-to-Receiver Access Control & Permission Matrix
+        </span>
+        <button class="action-btn" onclick="fetchMappings()">Refresh Mappings</button>
+      </div>
+
+      <div id="mappingToast" class="toast-msg"></div>
+
+      <div class="mapping-grid">
+        <!-- FORM: Map Senders to Receiver -->
+        <div style="background:rgba(14,20,36,0.5); border:1px solid var(--border-subtle); border-radius:12px; padding:18px;">
+          <h4 style="font-family:'Outfit',sans-serif; font-size:15px; margin-bottom:12px; color:#fff; display:flex; align-items:center; gap:8px;">
+            <span>➕</span> Assign Senders to Receiver
+          </h4>
+          <p style="font-size:12px; color:#94a3b8; margin-bottom:16px;">
+            Specify a receiver's username and select which senders they are authorized to track with live GPS permissions.
+          </p>
+
+          <form id="mappingForm" onsubmit="handleMappingSubmit(event)">
+            <input type="hidden" id="editMappingId" value="">
+
+            <div class="form-group">
+              <label class="form-label" for="receiverUsernameInput">Receiver Username</label>
+              <input
+                type="text"
+                id="receiverUsernameInput"
+                class="form-input"
+                placeholder="e.g. receiver1, supervisor, admin_viewer"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <label class="form-label">Permitted Senders</label>
+                <div style="font-size:11px;">
+                  <a href="javascript:void(0)" onclick="toggleAllSenders(true)" style="color:#818cf8; text-decoration:none; margin-right:8px;">All</a>
+                  <a href="javascript:void(0)" onclick="toggleAllSenders(false)" style="color:#94a3b8; text-decoration:none;">None</a>
+                </div>
+              </div>
+              <div id="senderCheckboxesList" class="senders-selector">
+                <div style="color:#64748b; font-size:11px; text-align:center; padding:10px;">Loading active senders…</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Permissions & Status</label>
+              <label class="perm-toggle">
+                <input type="checkbox" id="permLiveGps" checked>
+                <span>Authorize Real-time Live GPS Coordinates</span>
+              </label>
+              <label class="perm-toggle">
+                <input type="checkbox" id="permHistory" checked>
+                <span>Authorize Movement History & Telemetry</span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="mappingStatusSelect">Status</label>
+              <select id="mappingStatusSelect" class="form-input">
+                <option value="active" selected>Active (Allowed)</option>
+                <option value="paused">Paused (Temporarily Suspended)</option>
+                <option value="revoked">Revoked (Access Blocked)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="mappingNotesInput">Admin Notes (Optional)</label>
+              <input
+                type="text"
+                id="mappingNotesInput"
+                class="form-input"
+                placeholder="e.g. Field Team A, Supervisor monitor"
+              />
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:16px;">
+              <button type="submit" id="btnSubmitMapping" class="btn-submit-mapping">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                Save & Apply Mapping
+              </button>
+              <button type="button" class="btn-clear-mapping" onclick="resetMappingForm()">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- TABLE: Active Mappings -->
+        <div style="display:flex; flex-direction:column; overflow:hidden;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="font-family:'Outfit',sans-serif; font-size:15px; color:#fff;">
+              Active Receiver Access Rules (<span id="mappingRulesCount">0</span>)
+            </h4>
+            <span style="font-size:11px; color:#94a3b8;">Enforced in real-time across apps</span>
+          </div>
+
+          <div class="table-container" style="background:rgba(14,20,36,0.3); border:1px solid var(--border-subtle); border-radius:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Receiver</th>
+                  <th>Permitted Senders</th>
+                  <th>Status</th>
+                  <th>Permissions</th>
+                  <th>Last Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="mappingsTableBody">
+                <tr>
+                  <td colspan="6" style="text-align:center; color:#64748b; padding:24px;">Loading receiver mappings…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -677,10 +1004,202 @@
       }
     }
 
+    let availableSendersList = [];
+    let currentMappings = [];
+
     async function fetchAllAdminData() {
       fetchHealth();
       fetchUsers();
       fetchLocations();
+      fetchMappings();
+    }
+
+    async function fetchMappings() {
+      const tbody = document.getElementById('mappingsTableBody');
+      try {
+        const res = await fetch('/api/mappings');
+        if (res.ok) {
+          const data = await res.json();
+          const mappings = data.mappings || [];
+          currentMappings = mappings;
+
+          document.getElementById('statMappedReceivers').innerText = mappings.length;
+          document.getElementById('mappingRulesCount').innerText = mappings.length;
+
+          if (mappings.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b; padding:24px;">No receiver mappings yet. Use the form on the left to map senders to a receiver.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = mappings.map(m => {
+            const sendersHtml = (m.senderUsernames && m.senderUsernames.length > 0)
+              ? m.senderUsernames.map(s => `<span class="sender-tag">@${s}</span>`).join('')
+              : '<span style="color:#64748b; font-size:11px;">No senders assigned</span>';
+
+            const statusClass = m.status === 'active' ? 'badge-active' : 'badge-paused';
+            const statusLabel = m.status ? m.status.toUpperCase() : 'ACTIVE';
+
+            const permLive = m.permissions?.canViewLiveGps !== false
+              ? '<span class="badge-perm">Live GPS: Allowed</span>'
+              : '<span class="badge-perm" style="color:#94a3b8; border-color:rgba(255,255,255,0.1);">Live GPS: Off</span>';
+
+            const permHist = m.permissions?.canViewHistory !== false
+              ? '<span class="badge-perm">History: Allowed</span>'
+              : '<span class="badge-perm" style="color:#94a3b8; border-color:rgba(255,255,255,0.1);">History: Off</span>';
+
+            const timeStr = m.updatedAt ? new Date(m.updatedAt).toLocaleString() : '—';
+            const safeUsername = encodeURIComponent(m.receiverUsername);
+
+            return `
+              <tr>
+                <td><span class="user-pill" style="color:#c084fc; border-color:rgba(192,132,252,0.3); background:rgba(168,85,247,0.1);">@${m.receiverUsername}</span></td>
+                <td><div style="max-width:240px; display:flex; flex-wrap:wrap;">${sendersHtml}</div></td>
+                <td><span class="badge-status ${statusClass}">${statusLabel}</span></td>
+                <td>${permLive} ${permHist}</td>
+                <td style="font-size:12px; color:#cbd5e1;">${timeStr}</td>
+                <td>
+                  <div style="display:flex; gap:6px;">
+                    <button class="action-btn" onclick="editMapping('${safeUsername}')">Edit</button>
+                    <button class="btn-delete" onclick="deleteMapping('${safeUsername}')">Revoke</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (e) {
+        console.error('Failed to load mappings:', e);
+      }
+    }
+
+    function renderSenderCheckboxes() {
+      const container = document.getElementById('senderCheckboxesList');
+      if (!container) return;
+
+      if (availableSendersList.length === 0) {
+        container.innerHTML = '<div style="color:#64748b; font-size:11px; text-align:center; padding:10px;">No senders found. Senders appear when they register or transmit GPS.</div>';
+        return;
+      }
+
+      container.innerHTML = availableSendersList.map(s => `
+        <label class="sender-item">
+          <input type="checkbox" name="senderCheckbox" value="${s}">
+          <span style="font-weight:700; color:#fff;">@${s}</span>
+          <span style="font-size:10px; color:#94a3b8; margin-left:auto;">active sender</span>
+        </label>
+      `).join('');
+    }
+
+    function toggleAllSenders(check) {
+      const cbs = document.querySelectorAll('input[name="senderCheckbox"]');
+      cbs.forEach(cb => cb.checked = check);
+    }
+
+    async function handleMappingSubmit(event) {
+      event.preventDefault();
+      const receiverInput = document.getElementById('receiverUsernameInput');
+      const receiverUsername = receiverInput.value.trim().toLowerCase();
+      if (!receiverUsername) return;
+
+      const checkedSenders = [];
+      document.querySelectorAll('input[name="senderCheckbox"]:checked').forEach(cb => {
+        checkedSenders.push(cb.value.trim());
+      });
+
+      const canViewLiveGps = document.getElementById('permLiveGps').checked;
+      const canViewHistory = document.getElementById('permHistory').checked;
+      const status = document.getElementById('mappingStatusSelect').value;
+      const notes = document.getElementById('mappingNotesInput').value.trim();
+
+      const btn = document.getElementById('btnSubmitMapping');
+      btn.disabled = true;
+      btn.innerText = 'Saving…';
+
+      try {
+        const res = await fetch('/api/mappings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            receiverUsername,
+            senderUsernames: checkedSenders,
+            permissions: { canViewLiveGps, canViewHistory },
+            status,
+            notes,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          showMappingToast(`Success: Receiver @${receiverUsername} mapped to [${checkedSenders.join(', ')}]`, false);
+          resetMappingForm();
+          fetchMappings();
+        } else {
+          const err = await res.json();
+          showMappingToast(`Error: ${err.error || 'Failed to save mapping'}`, true);
+        }
+      } catch (e) {
+        showMappingToast(`Network error: ${e.message}`, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Save & Apply Mapping`;
+      }
+    }
+
+    function editMapping(encodedReceiver) {
+      const receiver = decodeURIComponent(encodedReceiver);
+      const item = currentMappings.find(m => m.receiverUsername.toLowerCase() === receiver.toLowerCase());
+      if (!item) return;
+
+      document.getElementById('receiverUsernameInput').value = item.receiverUsername;
+      document.getElementById('mappingStatusSelect').value = item.status || 'active';
+      document.getElementById('permLiveGps').checked = item.permissions?.canViewLiveGps !== false;
+      document.getElementById('permHistory').checked = item.permissions?.canViewHistory !== false;
+      document.getElementById('mappingNotesInput').value = item.notes || '';
+
+      // Check the senders that belong to this mapping
+      const senders = item.senderUsernames || [];
+      document.querySelectorAll('input[name="senderCheckbox"]').forEach(cb => {
+        cb.checked = senders.includes(cb.value);
+      });
+
+      // Scroll form into view
+      document.getElementById('mappingSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function deleteMapping(encodedReceiver) {
+      const receiver = decodeURIComponent(encodedReceiver);
+      if (!confirm(`Are you sure you want to revoke and delete all sender access for receiver @${receiver}?`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/mappings/${receiver}`, { method: 'DELETE' });
+        if (res.ok) {
+          showMappingToast(`Mapping for @${receiver} successfully deleted.`, false);
+          fetchMappings();
+        } else {
+          showMappingToast(`Failed to delete mapping for @${receiver}.`, true);
+        }
+      } catch (e) {
+        showMappingToast(`Error: ${e.message}`, true);
+      }
+    }
+
+    function resetMappingForm() {
+      document.getElementById('mappingForm').reset();
+      document.getElementById('editMappingId').value = '';
+      toggleAllSenders(false);
+    }
+
+    function showMappingToast(msg, isError) {
+      const toast = document.getElementById('mappingToast');
+      if (!toast) return;
+      toast.innerText = msg;
+      toast.className = `toast-msg ${isError ? 'toast-error' : 'toast-success'}`;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 5000);
     }
 
     async function fetchHealth() {
@@ -707,6 +1226,14 @@
           const data = await res.json();
           const users = data.users || [];
           document.getElementById('statTotalUsers').innerText = users.length;
+
+          const sendersFromUsers = users
+            .map(u => u.username)
+            .filter(u => u && u !== 'User' && u !== 'Player_777');
+          sendersFromUsers.forEach(s => {
+            if (!availableSendersList.includes(s)) availableSendersList.push(s);
+          });
+          renderSenderCheckboxes();
 
           if (users.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">No registered users found.</td></tr>';
@@ -745,6 +1272,15 @@
           const locs = await res.json();
           document.getElementById('statActiveSenders').innerText = locs.length;
 
+          const sendersFromLocs = locs
+            .map(l => (l.username && l.username !== 'Player_777' && l.username !== 'User') ? l.username : (l.email ? l.email.split('@')[0] : ''))
+            .filter(u => u && u.length > 0 && u !== 'User' && u !== 'Player_777');
+          
+          sendersFromLocs.forEach(s => {
+            if (!availableSendersList.includes(s)) availableSendersList.push(s);
+          });
+          renderSenderCheckboxes();
+
           if (!Array.isArray(locs) || locs.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">No active shared locations found.</td></tr>';
             return;
@@ -754,7 +1290,7 @@
           tbody.innerHTML = locs.map(l => {
             const lat = Number(l.latitude);
             const lng = Number(l.longitude);
-            const user = l.username || (l.email ? l.email.split('@')[0] : 'User');
+            const user = (l.username && l.username !== 'Player_777' && l.username !== 'User') ? l.username : (l.email ? l.email.split('@')[0] : 'Sender');
             bounds.push([lat, lng]);
 
             addOrUpdateAdminMarker(lat, lng, l.accuracy, user);

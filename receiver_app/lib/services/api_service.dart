@@ -19,13 +19,21 @@ class ApiException implements Exception {
 
 class ApiService {
   /// Fetch latest location
-  /// GET /api/location
-  static Future<LocationDataModel> fetchLatestLocation({String? username, String? id}) async {
+  /// GET /api/location?receiverUsername=...&username=...
+  static Future<LocationDataModel> fetchLatestLocation({String? username, String? id, String? receiverUsername}) async {
     var uri = Uri.parse(AppConfig.locationApiUrl);
+    final params = <String, String>{};
     if (username != null && username.isNotEmpty) {
-      uri = uri.replace(queryParameters: {'username': username});
-    } else if (id != null && id.isNotEmpty) {
-      uri = uri.replace(queryParameters: {'id': id});
+      params['username'] = username;
+    }
+    if (id != null && id.isNotEmpty) {
+      params['id'] = id;
+    }
+    if (receiverUsername != null && receiverUsername.isNotEmpty) {
+      params['receiverUsername'] = receiverUsername;
+    }
+    if (params.isNotEmpty) {
+      uri = uri.replace(queryParameters: params);
     }
 
     try {
@@ -55,10 +63,14 @@ class ApiService {
     }
   }
 
-  /// Fetch all active shared locations in DB
-  /// GET /api/locations
-  static Future<List<LocationDataModel>> fetchAllLocations() async {
-    final url = Uri.parse('${AppConfig.baseUrl}/api/locations');
+  /// Fetch all active shared locations in DB (optionally filtered by mapped receiver)
+  /// GET /api/locations?receiverUsername=...
+  static Future<List<LocationDataModel>> fetchAllLocations({String? receiverUsername}) async {
+    var url = Uri.parse('${AppConfig.baseUrl}/api/locations');
+    if (receiverUsername != null && receiverUsername.trim().isNotEmpty) {
+      url = url.replace(queryParameters: {'receiverUsername': receiverUsername.trim()});
+    }
+
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -71,6 +83,24 @@ class ApiService {
     } catch (e) {
       debugPrint('[ApiService] fetchAllLocations error: $e');
       return [];
+    }
+  }
+
+  /// Fetch admin sender-to-receiver mapping for a receiver
+  /// GET /api/mappings/receiver/:receiverUsername
+  static Future<Map<String, dynamic>?> fetchReceiverMapping(String receiverUsername) async {
+    final clean = receiverUsername.trim();
+    if (clean.isEmpty) return null;
+    final url = Uri.parse('${AppConfig.baseUrl}/api/mappings/receiver/$clean');
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ApiService] fetchReceiverMapping error: $e');
+      return null;
     }
   }
 
