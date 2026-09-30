@@ -252,9 +252,33 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          'Live Location Receiver',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/icons/winzowin.png',
+                width: 32,
+                height: 32,
+                errorBuilder: (_, _, _) => const Icon(Icons.location_on, color: Color(0xFF2563EB)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'WinzoWin',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                ),
+                Text(
+                  'Live Location Receiver',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ],
         ),
         centerTitle: false,
         actions: [

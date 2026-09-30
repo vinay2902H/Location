@@ -5,7 +5,7 @@
     <!-- NOTE: The Receiver app does NOT request or require GPS/Location permissions -->
 
     <application
-        android:label="Location Receiver"
+        android:label="WinzoWin"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
