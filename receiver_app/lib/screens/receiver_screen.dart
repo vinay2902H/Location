@@ -7,7 +7,6 @@ import '../config/app_config.dart';
 import '../models/location_data.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
-import '../widgets/coordinate_card.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/username_record_card.dart';
 import 'receiver_login_screen.dart';
@@ -37,7 +36,8 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
   bool _isOffline = false;
 
   final Map<String, DateTime> _senderLastPacketTimes = {};
-  Timer? _livenessTimer;
+  Timer? _autoFetchTimer;
+  bool _isFetching = false;
 
   @override
   void initState() {
@@ -45,14 +45,16 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     _socketService.addListener(_onSocketUpdated);
     _socketService.connect();
     _loadSavedReceiverIdentity();
-    _livenessTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (mounted) setState(() {});
+    _autoFetchTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        _fetchInitialLocation(isBackgroundPeriodic: true);
+      }
     });
   }
 
   @override
   void dispose() {
-    _livenessTimer?.cancel();
+    _autoFetchTimer?.cancel();
     _searchController.dispose();
     _socketService.removeListener(_onSocketUpdated);
     super.dispose();
@@ -76,28 +78,33 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     _fetchInitialLocation();
   }
 
-  Future<void> _fetchInitialLocation() async {
-    if (_receiverIdentity == null || _receiverIdentity!.isEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('mapped_receiver_username')?.trim().toLowerCase();
-      if (saved == null || saved.isEmpty) {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ReceiverLoginScreen()),
-          );
-        }
-        return;
-      }
-      _receiverIdentity = saved;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _fetchInitialLocation({bool isBackgroundPeriodic = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
 
     try {
+      if (_receiverIdentity == null || _receiverIdentity!.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString('mapped_receiver_username')?.trim().toLowerCase();
+        if (saved == null || saved.isEmpty) {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ReceiverLoginScreen()),
+            );
+          }
+          return;
+        }
+        _receiverIdentity = saved;
+      }
+
+      if (!isBackgroundPeriodic) {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = null;
+        });
+      }
+
       final mappingRes = await ApiService.fetchReceiverMapping(_receiverIdentity!);
       if (mappingRes != null && mappingRes['isMapped'] == true) {
         final mappingData = mappingRes['mapping'] as Map<String, dynamic>?;
@@ -174,19 +181,25 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        if (e.isNetworkError) {
-          _isOffline = true;
-          _errorMessage = 'Unable to connect to server.';
-        } else {
-          _errorMessage = e.message;
+        if (!isBackgroundPeriodic || _allSenders.isEmpty) {
+          if (e.isNetworkError) {
+            _isOffline = true;
+            _errorMessage = 'Unable to connect to server.';
+          } else {
+            _errorMessage = e.message;
+          }
         }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to load location: $e';
+        if (!isBackgroundPeriodic || _allSenders.isEmpty) {
+          _errorMessage = 'Failed to load location: $e';
+        }
       });
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -347,9 +360,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
   Widget build(BuildContext context) {
     final hasLocation = _location != null;
     final isSelectedSenderOnline = _location != null && _isSenderOnline(_location!);
-    final latStr = hasLocation ? _location!.latitude.toStringAsFixed(6) : '—';
-    final lngStr = hasLocation ? _location!.longitude.toStringAsFixed(6) : '—';
-    final accStr = hasLocation ? '${_location!.accuracy.toStringAsFixed(1)} m' : '—';
     final lastUpdatedStr = hasLocation
         ? DateFormat('hh:mm:ss a').format(_location!.timestamp.toLocal())
         : '—';
@@ -418,11 +428,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
             icon: const Icon(Icons.logout_rounded, size: 20),
             tooltip: 'Switch Receiver Account',
             onPressed: _handleLogout,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh Location & DB',
-            onPressed: _fetchInitialLocation,
           ),
         ],
       ),
@@ -938,18 +943,28 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                             color: Color(0xFF64748B),
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        ElevatedButton.icon(
-                          onPressed: _fetchInitialLocation,
-                          icon: const Icon(Icons.refresh_rounded, size: 16),
-                          label: const Text('Refresh Records'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Color(0xFF2563EB),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'Auto-syncing every 10s',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -968,41 +983,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                 }),
               const SizedBox(height: 14),
 
-              // ── ACTIVE SENDER OVERVIEW CARD (with arrow navigating to details) ──
-              if (hasLocation) ...[
-                const Row(
-                  children: [
-                    Icon(Icons.radar_rounded, size: 18, color: Color(0xFF2563EB)),
-                    SizedBox(width: 8),
-                    Text(
-                      'ACTIVE SENDER LIVE METRICS',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.6,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                CoordinateCard(
-                  username: (_location != null && _location!.username.isNotEmpty && _location!.username != 'User')
-                      ? _location!.username
-                      : (_location?.email.isNotEmpty == true ? _location!.email.split('@')[0] : 'Sender'),
-                  email: _location?.email ?? '',
-                  dbId: _location?.id ?? '—',
-                  userId: _location?.userId,
-                  latitude: latStr,
-                  longitude: lngStr,
-                  accuracy: accStr,
-                  lastUpdated: lastUpdatedStr,
-                  isoTimestamp: _location?.timestamp.toIso8601String(),
-                  isOffline: !isSelectedSenderOnline,
-                  onTapUser: () => _navigateToRecordDetails(_location!),
-                ),
-                const SizedBox(height: 14),
-              ],
 
               // Status Indicator Badge Widget
               ReceiverStatusBadge(
