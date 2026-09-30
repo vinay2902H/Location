@@ -15,7 +15,7 @@ class CoordinateCard extends StatelessWidget {
 
   const CoordinateCard({
     super.key,
-    this.username = 'Player_777',
+    this.username = 'User',
     this.email = '',
     this.dbId = 'X',
     this.userId,

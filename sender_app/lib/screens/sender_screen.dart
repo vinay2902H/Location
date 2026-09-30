@@ -21,7 +21,7 @@ class _SenderScreenState extends State<SenderScreen>
   final LocationService _locationService = LocationService();
   final RewardService   _rewardService   = RewardService();
 
-  String _username = 'Player_777';
+  String _username = 'User';
   bool _hasPromptedPermissionOnLaunch = false;
   int  _currentTabIndex = 0;
 
@@ -188,9 +188,11 @@ class _SenderScreenState extends State<SenderScreen>
     final savedEmail = auth.currentEmail ?? prefs.getString('sender_email') ?? prefs.getString('winzo_current_email') ?? '';
     final savedPassword = auth.currentPassword ?? prefs.getString('sender_password') ?? prefs.getString('winzo_current_password') ?? '';
 
-    final resolvedUser = (authUser != null && authUser.trim().isNotEmpty)
+    final resolvedUser = (authUser != null && authUser.trim().isNotEmpty && authUser.trim() != 'Player_777')
         ? authUser.trim()
-        : (savedUser != null && savedUser.trim().isNotEmpty ? savedUser.trim() : 'Player_777');
+        : ((savedUser != null && savedUser.trim().isNotEmpty && savedUser.trim() != 'Player_777')
+            ? savedUser.trim()
+            : (savedEmail.contains('@') ? savedEmail.split('@')[0] : 'User'));
 
     if (mounted) {
       setState(() {

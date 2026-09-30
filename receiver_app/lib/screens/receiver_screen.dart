@@ -591,7 +591,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                 ),
                 const SizedBox(height: 8),
                 CoordinateCard(
-                  username: _location?.username ?? 'Player_777',
+                  username: _location?.username ?? 'User',
                   email: _location?.email ?? '',
                   dbId: _location?.id ?? '—',
                   userId: _location?.userId,

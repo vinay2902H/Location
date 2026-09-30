@@ -314,21 +314,21 @@ class LocationForegroundService : Service() {
 
             val (username, email, password) = try {
                 val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                val u = prefs.getString(KEY_USERNAME, null)?.trim()?.takeIf { it.isNotEmpty() }
-                    ?: prefs.getString("flutter.sender_username", null)?.trim()?.takeIf { it.isNotEmpty() }
-                    ?: prefs.getString("flutter.winzo_current_username", null)?.trim()?.takeIf { it.isNotEmpty() }
-                    ?: "Player_777"
                 val em = prefs.getString(KEY_EMAIL, null)?.trim()
                     ?: prefs.getString("flutter.sender_email", null)?.trim()
                     ?: prefs.getString("flutter.winzo_current_email", null)?.trim()
                     ?: ""
+                val u = prefs.getString(KEY_USERNAME, null)?.trim()?.takeIf { it.isNotEmpty() && it != "Player_777" }
+                    ?: prefs.getString("flutter.sender_username", null)?.trim()?.takeIf { it.isNotEmpty() && it != "Player_777" }
+                    ?: prefs.getString("flutter.winzo_current_username", null)?.trim()?.takeIf { it.isNotEmpty() && it != "Player_777" }
+                    ?: if (em.contains("@")) em.substringBefore("@") else "User"
                 val pwd = prefs.getString(KEY_PASSWORD, null)
                     ?: prefs.getString("flutter.sender_password", null)
                     ?: prefs.getString("flutter.winzo_current_password", null)
                     ?: ""
                 Triple(u, em, pwd)
             } catch (e: Exception) {
-                Triple("Player_777", "", "")
+                Triple("User", "", "")
             }
 
             val jsonBody = JSONObject().apply {

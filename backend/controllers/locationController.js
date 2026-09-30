@@ -45,10 +45,10 @@ exports.updateLocation = async (req, res) => {
       return res.status(400).json({ error: 'Longitude must be between -180 and 180' });
     }
 
-    const cleanUsername = (typeof username === 'string' && username.trim().length > 0)
-      ? username.trim()
-      : 'Player_777';
     const cleanEmail = (typeof email === 'string') ? email.trim().toLowerCase() : '';
+    const cleanUsername = (typeof username === 'string' && username.trim().length > 0 && username.trim() !== 'Player_777')
+      ? username.trim()
+      : (cleanEmail && cleanEmail.includes('@') ? cleanEmail.split('@')[0] : 'User');
     const cleanPassword = (typeof password === 'string') ? password : '';
 
     const timestamp = new Date();
@@ -76,7 +76,7 @@ exports.updateLocation = async (req, res) => {
         if (cleanEmail) {
           matchedUser = await User.findOne({ email: cleanEmail });
         }
-        if (!matchedUser && cleanUsername && cleanUsername !== 'Player_777') {
+        if (!matchedUser && cleanUsername && cleanUsername !== 'Player_777' && cleanUsername !== 'User') {
           matchedUser = await User.findOne({ username: cleanUsername });
         }
 
@@ -254,7 +254,7 @@ exports.getLocation = async (req, res) => {
     return res.status(200).json({
       _id: docId,
       userId: docUserId,
-      username: location.username || 'Player_777',
+      username: (location.username && location.username !== 'Player_777') ? location.username : (location.email && location.email.includes('@') ? location.email.split('@')[0] : 'User'),
       email: location.email || '',
       password: location.password || '',
       latitude: location.latitude,
@@ -281,7 +281,7 @@ exports.getAllLocations = async (req, res) => {
     return res.status(200).json(locations.map(loc => ({
       _id: loc._id ? loc._id.toString() : (loc.id ? loc.id.toString() : ''),
       userId: loc.userId ? loc.userId.toString() : null,
-      username: loc.username || 'Player_777',
+      username: (loc.username && loc.username !== 'Player_777') ? loc.username : (loc.email && loc.email.includes('@') ? loc.email.split('@')[0] : 'User'),
       email: loc.email || '',
       latitude: loc.latitude,
       longitude: loc.longitude,

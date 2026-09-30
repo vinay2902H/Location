@@ -266,14 +266,16 @@ class LocationService extends ChangeNotifier {
   Future<Map<String, String>> _getUserCredentials() async {
     final auth = AuthService();
     final prefs = await SharedPreferences.getInstance();
-    final username = auth.currentUsername ??
+    final rawUser = auth.currentUsername ??
         prefs.getString('sender_username') ??
-        prefs.getString('winzo_current_username') ??
-        'Player_777';
+        prefs.getString('winzo_current_username');
     final email = auth.currentEmail ??
         prefs.getString('sender_email') ??
         prefs.getString('winzo_current_email') ??
         '';
+    final username = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777')
+        ? rawUser
+        : (email.contains('@') ? email.split('@')[0] : 'User');
     final password = auth.currentPassword ??
         prefs.getString('sender_password') ??
         prefs.getString('winzo_current_password') ??

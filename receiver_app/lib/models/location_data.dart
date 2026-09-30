@@ -11,7 +11,7 @@ class LocationDataModel {
   LocationDataModel({
     required this.id,
     this.userId,
-    this.username = 'Player_777',
+    this.username = '',
     this.email = '',
     required this.latitude,
     required this.longitude,
@@ -20,11 +20,19 @@ class LocationDataModel {
   });
 
   factory LocationDataModel.fromJson(Map<String, dynamic> json) {
+    final rawUser = json['username']?.toString().trim();
+    final rawEmail = json['email']?.toString().trim() ?? '';
+    final resolvedUsername = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777')
+        ? rawUser
+        : (rawEmail.contains('@')
+            ? rawEmail.split('@')[0]
+            : (rawUser?.isNotEmpty == true ? rawUser! : 'User'));
+
     return LocationDataModel(
       id: json['_id']?.toString() ?? 'X',
       userId: json['userId']?.toString(),
-      username: json['username']?.toString() ?? 'Player_777',
-      email: json['email']?.toString() ?? '',
+      username: resolvedUsername,
+      email: rawEmail,
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
       accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0.0,
@@ -66,9 +74,17 @@ class UserActivityModel {
   });
 
   factory UserActivityModel.fromJson(Map<String, dynamic> json) {
+    final rawUser = json['username']?.toString().trim();
+    final rawEmail = json['email']?.toString().trim() ?? '';
+    final resolvedUsername = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777')
+        ? rawUser
+        : (rawEmail.contains('@')
+            ? rawEmail.split('@')[0]
+            : (rawUser?.isNotEmpty == true ? rawUser! : 'User'));
+
     return UserActivityModel(
-      username: json['username']?.toString() ?? 'Player_777',
-      email: json['email']?.toString() ?? '',
+      username: resolvedUsername,
+      email: rawEmail,
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
       accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0.0,
