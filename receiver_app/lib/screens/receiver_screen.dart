@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../config/app_config.dart';
+
 import '../models/location_data.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
@@ -768,13 +768,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
-              Center(
-                child: Text(
-                  'Server: ${AppConfig.baseUrl}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                ),
-              ),
             ],
           ),
         ),
