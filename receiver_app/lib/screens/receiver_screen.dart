@@ -11,6 +11,7 @@ import '../widgets/coordinate_card.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/server_config_dialog.dart';
 import '../widgets/username_record_card.dart';
+import '../services/receiver_auth_service.dart';
 import 'record_detail_screen.dart';
 
 class ReceiverScreen extends StatefulWidget {
@@ -190,6 +191,68 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     }
   }
 
+  void _showUserMenu(BuildContext context) {
+    final current = ReceiverAuthService().currentUsername ?? 'User';
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      child: const Icon(Icons.person_rounded, color: Color(0xFF2563EB)),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'RECEIVER ACCOUNT',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        Text(
+                          '@$current',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF2563EB)),
+                  title: const Text('Switch Username / Log Out'),
+                  subtitle: const Text('Connect as a different receiver'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await ReceiverAuthService().logout();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _selectSender(String? username) {
     setState(() {
       _selectedUsername = username;
@@ -291,6 +354,11 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Server Configuration',
             onPressed: _openConfigDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined),
+            tooltip: 'Account',
+            onPressed: () => _showUserMenu(context),
           ),
         ],
       ),

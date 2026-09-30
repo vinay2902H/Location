@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:receiver_app/main.dart';
 import 'package:receiver_app/models/location_data.dart';
+import 'package:receiver_app/screens/receiver_screen.dart';
 import 'package:receiver_app/screens/record_detail_screen.dart';
 import 'package:receiver_app/services/socket_service.dart';
 import 'package:receiver_app/widgets/username_record_card.dart';
@@ -15,8 +16,18 @@ void main() {
     SocketService().disconnect();
   });
 
-  testWidgets('ReceiverApp home screen smoke test', (WidgetTester tester) async {
+  testWidgets('ReceiverApp smoke test: shows login screen with username input', (WidgetTester tester) async {
     await tester.pumpWidget(const ReceiverApp());
+    expect(find.text('WinzoWin Receiver'), findsOneWidget);
+    expect(find.text('Connect & Enter'), findsOneWidget);
+  });
+
+  testWidgets('ReceiverScreen displays live location receiver interface', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ReceiverScreen(),
+      ),
+    );
     expect(find.textContaining('Live Location'), findsWidgets);
     expect(find.text('RECORDS BY USERNAME'), findsOneWidget);
     SocketService().disconnect();

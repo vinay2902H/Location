@@ -231,3 +231,73 @@ exports.getUsers = async (req, res) => {
     return res.status(500).json({ error: 'Failed to retrieve users' });
   }
 };
+
+/**
+ * Username-only Login or Create for Receiver/Sender Connection
+ * POST /api/auth/username-login
+ * Body: { username: string }
+ */
+exports.usernameLogin = async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username || typeof username !== 'string' || username.trim().length < 2) {
+      return res.status(400).json({ error: 'Please enter a username with at least 2 characters' });
+    }
+
+    const cleanUsername = username.trim();
+    const isDbConnected = mongoose.connection.readyState === 1;
+
+    let user = null;
+    if (isDbConnected) {
+      // Find existing user by case-insensitive username
+      user = await User.findOne({
+        username: { $regex: new RegExp(`^${cleanUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      });
+
+      if (!user) {
+        // Create new user account with this username
+        user = await User.create({
+          username: cleanUsername,
+          email: `${cleanUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}@winzo.app`,
+          password: 'nopassword',
+          lastLogin: new Date()
+        });
+      } else {
+        user.lastLogin = new Date();
+        await user.save().catch(() => {});
+      }
+    } else {
+      // Memory fallback
+      for (const u of inMemoryUsers.values()) {
+        if (u.username.toLowerCase() === cleanUsername.toLowerCase()) {
+          user = u;
+          break;
+        }
+      }
+      if (!user) {
+        user = {
+          _id: new mongoose.Types.ObjectId().toString(),
+          username: cleanUsername,
+          email: `${cleanUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}@winzo.app`,
+          password: 'nopassword',
+          createdAt: new Date(),
+          lastLogin: new Date()
+        };
+        inMemoryUsers.set(user.email, user);
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Logged in successfully',
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        lastLogin: user.lastLogin
+      }
+    });
+  } catch (error) {
+    console.error('[AuthController] Username login error:', error);
+    return res.status(500).json({ error: 'Failed to process username login' });
+  }
+};

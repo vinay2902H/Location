@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WinzoWin Live Connect — Real-time Location Sharing</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <style>
+    :root {
+      --bg-deep: #090d16;
+      --bg-card: rgba(18, 24, 38, 0.78);
+      --bg-card-hover: rgba(26, 35, 56, 0.88);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-active: rgba(59, 130, 246, 0.4);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-glow: rgba(59, 130, 246, 0.35);
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.35);
+      --rose: #f43f5e;
+      --amber: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at 15% 15%, #131b2e 0%, var(--bg-deep) 65%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ───────────────────────────────────────────────────────────── */
+    header {
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #ffffff, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-tag {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      transition: all 0.3s ease;
+    }
+
+    .status-badge.offline {
+      background: rgba(244, 63, 94, 0.12);
+      border-color: rgba(244, 63, 94, 0.3);
+      color: #fb7185;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    .status-badge.offline .status-dot {
+      background: #f43f5e;
+      box-shadow: 0 0 8px #f43f5e;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* ── TABS ─────────────────────────────────────────────────────────────── */
+    .tabs-bar {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .tab-btn {
+      padding: 7px 16px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
+
+    /* ── MAIN LAYOUT ──────────────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      padding: 20px 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 960px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── SIDEBAR PANEL ────────────────────────────────────────────────────── */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.36);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Input Controls */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: #fff;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    /* Active Users Quick Selection */
+    .chip-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+      margin-bottom: 14px;
+    }
+
+    .user-chip {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .user-chip:hover {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--primary);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .user-chip.selected {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
+
+    /* Primary & Secondary Buttons */
+    .btn {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #fff;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: #fff;
+      box-shadow: 0 4px 14px var(--emerald-glow);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #e11d48, #f43f5e);
+      color: #fff;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      margin-top: 8px;
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .metric-box {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 12px;
+      border-radius: 10px;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f8fafc;
+      font-feature-settings: "tnum";
+    }
+
+    /* ── MAP CONTAINER ────────────────────────────────────────────────────── */
+    .map-container-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 120px);
+      min-height: 520px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.36);
+      position: relative;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      background: #0b0f19;
+    }
+
+    .map-overlay-tools {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f1f5f9;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      transition: all 0.2s ease;
+    }
+
+    .tool-btn:hover {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    /* Custom Pulsing Marker CSS */
+    .pulsing-marker {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      background: #2563eb;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 16px rgba(37, 99, 235, 0.9);
+    }
+
+    .pulsing-marker::after {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      right: -8px;
+      bottom: -8px;
+      border-radius: 50%;
+      border: 2px solid #3b82f6;
+      animation: ripple 1.6s ease-out infinite;
+    }
+
+    @keyframes ripple {
+      0% { transform: scale(0.6); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    /* Logs & History Stream */
+    .log-list {
+      max-height: 160px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #94a3b8;
+    }
+
+    .log-item {
+      padding: 6px 10px;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 6px;
+      border-left: 3px solid var(--primary);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border-active);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      display: none;
+      z-index: 2000;
+      font-size: 13px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <a href="#" class="brand">
+      <div class="brand-icon">W</div>
+      <div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="brand-title">WinzoWin</span>
+          <span class="brand-tag">Live Connect</span>
+        </div>
+      </div>
+    </a>
+
+    <div class="header-actions">
+      <!-- Tabs to switch between tracking and broadcasting -->
+      <div class="tabs-bar">
+        <button id="tabReceiver" class="tab-btn active" onclick="switchMode('receiver')">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Receiver View
+        </button>
+        <button id="tabSender" class="tab-btn" onclick="switchMode('sender')">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/></svg>
+          Sender View
+        </button>
+      </div>
+
+      <!-- Socket.IO Status Badge -->
+      <div id="connectionStatus" class="status-badge">
+        <span class="status-dot"></span>
+        <span id="statusText">Connected</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEW -->
+  <main>
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar">
+      
+      <!-- RECEIVER MODE PANEL -->
+      <div id="receiverPanel">
+        <!-- Target Sender Selection -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+              Connect to Sender
+            </span>
+            <button onclick="refreshActiveSenders()" style="background:transparent; border:none; color:var(--primary); cursor:pointer; font-size:12px; font-weight:600;">Refresh</button>
+          </div>
+
+          <div class="form-group">
+            <label>Sender Username</label>
+            <div class="input-wrapper">
+              <input type="text" id="targetUsername" placeholder="e.g. sai, try, bunny" oninput="onUsernameInputChange(this.value)">
+            </div>
+          </div>
+
+          <label>Active Senders in DB</label>
+          <div id="activeSendersList" class="chip-container">
+            <span style="font-size:12px; color:var(--text-muted);">Loading active senders…</span>
+          </div>
+
+          <button class="btn btn-primary" onclick="connectToSender()">
+            Connect & View Live Location
+          </button>
+        </div>
+
+        <!-- Live Metrics Card -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Live Sender Metrics</span>
+            <span id="lastUpdatedTick" style="font-size:11px; color:#38bdf8; font-weight:600;">Waiting for data</span>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <div class="metric-label">Sender</div>
+              <div id="metricUser" class="metric-value">—</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Accuracy</div>
+              <div id="metricAccuracy" class="metric-value">—</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Latitude</div>
+              <div id="metricLat" class="metric-value">—</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Longitude</div>
+              <div id="metricLng" class="metric-value">—</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px; display:flex; gap:8px;">
+            <button class="btn btn-outline" style="flex:1;" onclick="openGoogleMaps()">
+              Google Maps
+            </button>
+            <button class="btn btn-outline" style="flex:1;" onclick="centerMapOnSender()">
+              Center Map
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Updates Feed -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Live Update Feed</span>
+            <span id="updateCountBadge" style="font-size:10px; background:#1e293b; padding:2px 6px; border-radius:10px;">0 packets</span>
+          </div>
+          <div id="logsContainer" class="log-list">
+            <div style="color:#64748b; text-align:center; padding:10px;">Awaiting location broadcasts…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SENDER MODE PANEL (Broadcast location from web) -->
+      <div id="senderPanel" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Broadcast Location</span>
+          </div>
+
+          <div class="form-group">
+            <label>My Username</label>
+            <input type="text" id="mySenderUsername" placeholder="e.g. web_user">
+          </div>
+
+          <div class="form-group">
+            <label>My Email (Optional)</label>
+            <input type="text" id="mySenderEmail" placeholder="e.g. user@gmail.com">
+          </div>
+
+          <button id="btnStartGps" class="btn btn-success" onclick="toggleGpsSharing()">
+            Transmit My GPS Location
+          </button>
+          
+          <button id="btnSimulate" class="btn btn-outline" onclick="toggleSimulation()" style="margin-top:10px;">
+            Simulate Walking Route
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Broadcast Status</span>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <div class="metric-label">Status</div>
+              <div id="senderStatusVal" class="metric-value" style="color:#fb7185;">Idle</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Transmitted</div>
+              <div id="senderCountVal" class="metric-value">0</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Lat</div>
+              <div id="senderLatVal" class="metric-value">—</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Lng</div>
+              <div id="senderLngVal" class="metric-value">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT MAP CONTAINER -->
+    <div class="map-container-card">
+      <div id="map"></div>
+      
+      <!-- Overlay map tools -->
+      <div class="map-overlay-tools">
+        <button class="tool-btn" title="Center Map" onclick="centerMapOnSender()">⌖</button>
+        <button class="tool-btn" title="Toggle Map Style" onclick="toggleMapStyle()">🗺️</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Socket.IO Client -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    // ── STATE ───────────────────────────────────────────────────────────────
+    let currentMode = 'receiver';
+    let socket = null;
+    let map = null;
+    let marker = null;
+    let accuracyCircle = null;
+    let currentTargetUsername = '';
+    let latestLocation = null;
+    let packetCount = 0;
+    let watchId = null;
+    let isTransmitting = false;
+    let isSimulating = false;
+    let simulationTimer = null;
+    let activeSenders = [];
+
+    // Map tiles
+    let currentTileLayer = null;
+    let isDarkTiles = true;
+
+    // ── INITIALIZATION ──────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      initMap();
+      initSocket();
+      refreshActiveSenders();
+
+      // Check URL search params for quick sender targeting: ?sender=sai
+      const params = new URLSearchParams(window.location.search);
+      const urlSender = params.get('sender');
+      if (urlSender) {
+        document.getElementById('targetUsername').value = urlSender;
+        currentTargetUsername = urlSender.trim();
+        connectToSender();
+      }
+    });
+
+    // ── MAP SETUP ───────────────────────────────────────────────────────────
+    function initMap() {
+      // Default center: India (Hyderabad)
+      map = L.map('map', {
+        zoomControl: true,
+        attributionControl: false
+      }).setView([17.385044, 78.486671], 14);
+
+      setMapTiles(true);
+    }
+
+    function setMapTiles(dark) {
+      if (currentTileLayer) {
+        map.removeLayer(currentTileLayer);
+      }
+      isDarkTiles = dark;
+      if (dark) {
+        currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19
+        }).addTo(map);
+      } else {
+        currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19
+        }).addTo(map);
+      }
+    }
+
+    function toggleMapStyle() {
+      setMapTiles(!isDarkTiles);
+      showToast(isDarkTiles ? 'Switched to Dark Map' : 'Switched to Street Map');
+    }
+
+    // ── SOCKET.IO ───────────────────────────────────────────────────────────
+    function initSocket() {
+      try {
+        socket = io();
+
+        socket.on('connect', () => {
+          updateConnectionStatus(true);
+          showToast('Connected to live backend stream');
+        });
+
+        socket.on('disconnect', () => {
+          updateConnectionStatus(false);
+        });
+
+        socket.on('locationUpdated', (data) => {
+          handleIncomingLocation(data);
+        });
+
+      } catch (err) {
+        console.error('Socket init error:', err);
+        updateConnectionStatus(false);
+      }
+    }
+
+    function updateConnectionStatus(connected) {
+      const badge = document.getElementById('connectionStatus');
+      const text = document.getElementById('statusText');
+      if (connected) {
+        badge.classList.remove('offline');
+        text.innerText = 'Connected';
+      } else {
+        badge.classList.add('offline');
+        text.innerText = 'Disconnected';
+      }
+    }
+
+    // ── HANDLE LOCATION UPDATES ─────────────────────────────────────────────
+    function handleIncomingLocation(data) {
+      if (!data) return;
+
+      const user = data.username || (data.email ? data.email.split('@')[0] : 'User');
+      
+      // If receiver is tracking a specific user, filter accordingly
+      if (currentTargetUsername && user.toLowerCase() !== currentTargetUsername.toLowerCase()) {
+        return;
+      }
+
+      latestLocation = data;
+      packetCount++;
+
+      // Update metrics UI
+      document.getElementById('metricUser').innerText = user;
+      document.getElementById('metricLat').innerText = Number(data.latitude).toFixed(6);
+      document.getElementById('metricLng').innerText = Number(data.longitude).toFixed(6);
+      document.getElementById('metricAccuracy').innerText = data.accuracy ? `${Number(data.accuracy).toFixed(1)} m` : '± 10 m';
+      document.getElementById('updateCountBadge').innerText = `${packetCount} packets`;
+
+      const timeStr = new Date(data.timestamp || Date.now()).toLocaleTimeString();
+      document.getElementById('lastUpdatedTick').innerText = `Updated ${timeStr}`;
+
+      // Update Map Marker
+      updateMapMarker(data.latitude, data.longitude, data.accuracy, user);
+
+      // Append Log
+      appendLog(user, data.latitude, data.longitude, timeStr);
+    }
+
+    function updateMapMarker(lat, lng, accuracy, username) {
+      if (!map) return;
+
+      const pos = [lat, lng];
+
+      if (!marker) {
+        const customIcon = L.divIcon({
+          className: 'custom-div-icon',
+          html: `<div class="pulsing-marker" title="${username}"></div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+
+        marker = L.marker(pos, { icon: customIcon }).addTo(map);
+        marker.bindPopup(`<b>${username}</b><br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`).openPopup();
+        map.setView(pos, 16);
+      } else {
+        marker.setLatLng(pos);
+        marker.getPopup().setContent(`<b>${username}</b><br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`);
+      }
+
+      if (accuracy) {
+        if (!accuracyCircle) {
+          accuracyCircle = L.circle(pos, {
+            radius: accuracy,
+            color: '#3b82f6',
+            fillColor: '#3b82f6',
+            fillOpacity: 0.15,
+            weight: 1
+          }).addTo(map);
+        } else {
+          accuracyCircle.setLatLng(pos);
+          accuracyCircle.setRadius(accuracy);
+        }
+      }
+    }
+
+    function appendLog(user, lat, lng, time) {
+      const container = document.getElementById('logsContainer');
+      const item = document.createElement('div');
+      item.className = 'log-item';
+      item.innerHTML = `<span><strong>@${user}</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</span><span>${time}</span>`;
+      container.insertBefore(item, container.firstChild);
+
+      // Limit log entries
+      if (container.children.length > 20) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    // ── ACTIVE SENDERS LIST ─────────────────────────────────────────────────
+    async function refreshActiveSenders() {
+      const container = document.getElementById('activeSendersList');
+      try {
+        const [locRes, userRes] = await Promise.all([
+          fetch('/api/locations').catch(() => null),
+          fetch('/api/auth/users').catch(() => null)
+        ]);
+
+        const usersSet = new Map();
+
+        if (locRes && locRes.ok) {
+          const locs = await locRes.json();
+          if (Array.isArray(locs)) {
+            locs.forEach(l => {
+              if (l.username && l.username !== 'Player_777') {
+                usersSet.set(l.username.toLowerCase(), { username: l.username, lat: l.latitude, lng: l.longitude });
+              }
+            });
+          }
+        }
+
+        if (userRes && userRes.ok) {
+          const data = await userRes.json();
+          if (data && Array.isArray(data.users)) {
+            data.users.forEach(u => {
+              if (u.username && u.username !== 'Player_777' && !usersSet.has(u.username.toLowerCase())) {
+                usersSet.set(u.username.toLowerCase(), { username: u.username });
+              }
+            });
+          }
+        }
+
+        activeSenders = Array.from(usersSet.values());
+
+        if (activeSenders.length === 0) {
+          container.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">No active senders found</span>';
+          return;
+        }
+
+        container.innerHTML = '';
+        activeSenders.forEach(s => {
+          const chip = document.createElement('div');
+          chip.className = `user-chip ${currentTargetUsername.toLowerCase() === s.username.toLowerCase() ? 'selected' : ''}`;
+          chip.innerText = `@${s.username}`;
+          chip.onclick = () => selectSenderChip(s.username);
+          container.appendChild(chip);
+        });
+
+      } catch (err) {
+        console.error('Error fetching senders:', err);
+        container.innerHTML = '<span style="font-size:12px; color:#f43f5e;">Failed to load senders</span>';
+      }
+    }
+
+    function selectSenderChip(username) {
+      document.getElementById('targetUsername').value = username;
+      currentTargetUsername = username.trim();
+      
+      // Update chip classes
+      document.querySelectorAll('.user-chip').forEach(c => {
+        c.classList.toggle('selected', c.innerText === `@${username}`);
+      });
+
+      connectToSender();
+    }
+
+    function onUsernameInputChange(val) {
+      currentTargetUsername = val.trim();
+      document.querySelectorAll('.user-chip').forEach(c => {
+        c.classList.toggle('selected', c.innerText.toLowerCase() === `@${currentTargetUsername.toLowerCase()}`);
+      });
+    }
+
+    async function connectToSender() {
+      const user = document.getElementById('targetUsername').value.trim();
+      if (!user) {
+        showToast('Please enter or select a sender username');
+        return;
+      }
+
+      currentTargetUsername = user;
+      showToast(`Connecting to @${user}…`);
+
+      try {
+        const res = await fetch(`/api/location?username=${encodeURIComponent(user)}`);
+        if (res.ok) {
+          const data = await res.json();
+          handleIncomingLocation(data);
+          showToast(`Connected to @${user} live location`);
+        } else {
+          showToast(`No location stored yet for @${user}. Listening for live broadcast…`);
+        }
+      } catch (e) {
+        console.warn('Direct fetch failed, listening on socket:', e);
+      }
+    }
+
+    function centerMapOnSender() {
+      if (latestLocation && map) {
+        map.setView([latestLocation.latitude, latestLocation.longitude], 16);
+      } else {
+        showToast('No coordinates available to center');
+      }
+    }
+
+    function openGoogleMaps() {
+      if (latestLocation) {
+        window.open(`https://www.google.com/maps?q=${latestLocation.latitude},${latestLocation.longitude}`, '_blank');
+      } else {
+        showToast('No coordinates available yet');
+      }
+    }
+
+    // ── SENDER BROADCASTER MODE ─────────────────────────────────────────────
+    function switchMode(mode) {
+      currentMode = mode;
+      document.getElementById('tabReceiver').classList.toggle('active', mode === 'receiver');
+      document.getElementById('tabSender').classList.toggle('active', mode === 'sender');
+      document.getElementById('receiverPanel').style.display = mode === 'receiver' ? 'block' : 'none';
+      document.getElementById('senderPanel').style.display = mode === 'sender' ? 'block' : 'none';
+    }
+
+    function toggleGpsSharing() {
+      if (isTransmitting) {
+        stopGpsSharing();
+      } else {
+        startGpsSharing();
+      }
+    }
+
+    function startGpsSharing() {
+      const username = document.getElementById('mySenderUsername').value.trim() || 'web_sender';
+      const email = document.getElementById('mySenderEmail').value.trim();
+
+      if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser.');
+        return;
+      }
+
+      isTransmitting = true;
+      document.getElementById('btnStartGps').innerText = 'Stop Transmitting';
+      document.getElementById('btnStartGps').className = 'btn btn-danger';
+      document.getElementById('senderStatusVal').innerText = 'Broadcasting GPS';
+      document.getElementById('senderStatusVal').style.color = '#10b981';
+
+      let count = 0;
+      watchId = navigator.geolocation.watchPosition(async (pos) => {
+        count++;
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy || 10;
+
+        document.getElementById('senderLatVal').innerText = lat.toFixed(5);
+        document.getElementById('senderLngVal').innerText = lng.toFixed(5);
+        document.getElementById('senderCountVal').innerText = count;
+
+        await sendCoordinatesToServer(lat, lng, acc, username, email);
+      }, (err) => {
+        console.error('GPS error:', err);
+        showToast('GPS error: ' + err.message);
+        stopGpsSharing();
+      }, {
+        enableHighAccuracy: true,
+        maximumAge: 0
+      });
+
+      showToast('Live GPS transmission active');
+    }
+
+    function stopGpsSharing() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      isTransmitting = false;
+      document.getElementById('btnStartGps').innerText = 'Transmit My GPS Location';
+      document.getElementById('btnStartGps').className = 'btn btn-success';
+      document.getElementById('senderStatusVal').innerText = 'Idle';
+      document.getElementById('senderStatusVal').style.color = '#fb7185';
+      showToast('GPS transmission stopped');
+    }
+
+    // Route Simulator for easy testing without physical movement
+    function toggleSimulation() {
+      if (isSimulating) {
+        stopSimulation();
+      } else {
+        startSimulation();
+      }
+    }
+
+    function startSimulation() {
+      const username = document.getElementById('mySenderUsername').value.trim() || 'simulator';
+      const email = document.getElementById('mySenderEmail').value.trim() || 'sim@winzo.app';
+
+      isSimulating = true;
+      document.getElementById('btnSimulate').innerText = 'Stop Simulation';
+      document.getElementById('senderStatusVal').innerText = 'Simulating';
+      document.getElementById('senderStatusVal').style.color = '#38bdf8';
+
+      // Start near Hyderabad / latest location
+      let lat = latestLocation ? latestLocation.latitude : 17.385044;
+      let lng = latestLocation ? latestLocation.longitude : 78.486671;
+      let count = 0;
+
+      simulationTimer = setInterval(async () => {
+        count++;
+        // Small realistic walking delta
+        lat += (Math.random() - 0.48) * 0.0003;
+        lng += (Math.random() - 0.48) * 0.0003;
+
+        document.getElementById('senderLatVal').innerText = lat.toFixed(5);
+        document.getElementById('senderLngVal').innerText = lng.toFixed(5);
+        document.getElementById('senderCountVal').innerText = count;
+
+        await sendCoordinatesToServer(lat, lng, 8, username, email);
+      }, 3000);
+
+      showToast('Simulation started');
+    }
+
+    function stopSimulation() {
+      if (simulationTimer) {
+        clearInterval(simulationTimer);
+        simulationTimer = null;
+      }
+      isSimulating = false;
+      document.getElementById('btnSimulate').innerText = 'Simulate Walking Route';
+      document.getElementById('senderStatusVal').innerText = 'Idle';
+      document.getElementById('senderStatusVal').style.color = '#fb7185';
+      showToast('Simulation stopped');
+    }
+
+    async function sendCoordinatesToServer(lat, lng, acc, username, email) {
+      try {
+        await fetch('/api/location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latitude: lat,
+            longitude: lng,
+            accuracy: acc,
+            username: username,
+            email: email
+          })
+        });
+      } catch (e) {
+        console.error('Failed to post location:', e);
+      }
+    }
+
+    // ── TOAST HELPER ────────────────────────────────────────────────────────
+    let toastTimeout = null;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.innerText = msg;
+      el.style.display = 'block';
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        el.style.display = 'none';
+      }, 3500);
+    }
+  </script>
+</body>
+</html>

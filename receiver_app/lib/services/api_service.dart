@@ -111,4 +111,40 @@ class ApiService {
       return false;
     }
   }
+
+  /// Username-only login/registration
+  /// POST /api/auth/username-login
+  static Future<Map<String, dynamic>> loginWithUsername(String username) async {
+    final url = Uri.parse('${AppConfig.baseUrl}/api/auth/username-login');
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'username': username.trim()}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        try {
+          final err = jsonDecode(response.body);
+          throw ApiException(err['error']?.toString() ?? 'Login failed');
+        } catch (e) {
+          if (e is ApiException) rethrow;
+          throw ApiException('Login failed with status ${response.statusCode}');
+        }
+      }
+    } on SocketException catch (_) {
+      throw ApiException('Unable to connect to server.', isNetworkError: true);
+    } on TimeoutException catch (_) {
+      throw ApiException('Connection timed out.', isNetworkError: true);
+    } on http.ClientException catch (_) {
+      throw ApiException('Network error connecting to server.', isNetworkError: true);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Authentication error: $e');
+    }
+  }
 }
