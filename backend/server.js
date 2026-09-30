@@ -31,8 +31,8 @@ app.use(express.json());
 // Serve static web app
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Admin dashboard route
-app.get('/admin', (req, res) => {
+// Admin dashboard and mapping routes
+app.get(['/admin', '/admin-mapping', '/admin/mapping'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 

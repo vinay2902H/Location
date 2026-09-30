@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'config/app_config.dart';
+import 'screens/receiver_login_screen.dart';
 import 'screens/receiver_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppConfig.init();
-  runApp(const ReceiverApp());
+  final prefs = await SharedPreferences.getInstance();
+  final savedUser = prefs.getString('mapped_receiver_username')?.trim();
+  final hasUser = savedUser != null && savedUser.isNotEmpty;
+  runApp(ReceiverApp(
+    initialHome: hasUser ? const ReceiverScreen() : const ReceiverLoginScreen(),
+  ));
 }
 
 class ReceiverApp extends StatelessWidget {
-  const ReceiverApp({super.key});
+  final Widget? initialHome;
+  const ReceiverApp({super.key, this.initialHome});
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +37,7 @@ class ReceiverApp extends StatelessWidget {
           elevation: 0.5,
         ),
       ),
-      home: const ReceiverScreen(),
+      home: initialHome ?? const ReceiverScreen(),
     );
   }
 }

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 // In-memory fallback cache when MongoDB is offline
 const inMemoryMappings = new Map();
+exports.inMemoryMappings = inMemoryMappings;
 
 /**
  * Format mapping document for API response

@@ -4,6 +4,7 @@ const User = require('../models/User');
 const ReceiverMapping = require('../models/ReceiverMapping');
 const mongoose = require('mongoose');
 const socketService = require('../services/socketService');
+const mappingController = require('./mappingController');
 
 // In-memory fallback cache when MongoDB is offline or initial connection is pending
 let inMemoryLocation = null;
@@ -297,14 +298,15 @@ exports.getAllLocations = async (req, res) => {
   try {
     let allowedSenders = null;
     if (req.query.receiverUsername) {
-      const recName = req.query.receiverUsername.trim().toLowerCase();
-      if (mongoose.connection.readyState === 1) {
-        const mapping = await ReceiverMapping.findOne({ receiverUsername: recName, status: 'active' }).lean();
-        allowedSenders = mapping ? mapping.senderUsernames : [];
-      } else {
-        allowedSenders = [];
-      }
-    }
+       const recName = req.query.receiverUsername.trim().toLowerCase();
+       if (mongoose.connection.readyState === 1) {
+         const mapping = await ReceiverMapping.findOne({ receiverUsername: recName, status: 'active' }).lean();
+         allowedSenders = mapping ? mapping.senderUsernames : [];
+       } else {
+         const memoryMap = mappingController.inMemoryMappings.get(recName);
+         allowedSenders = (memoryMap && memoryMap.status === 'active') ? memoryMap.senderUsernames : [];
+       }
+     }
 
     if (mongoose.connection.readyState !== 1) {
       let fallback = inMemoryLocation ? [inMemoryLocation] : [];

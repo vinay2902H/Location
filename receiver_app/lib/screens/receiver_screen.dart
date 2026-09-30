@@ -13,6 +13,7 @@ import '../widgets/coordinate_card.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/server_config_dialog.dart';
 import '../widgets/username_record_card.dart';
+import 'receiver_login_screen.dart';
 import 'record_detail_screen.dart';
 
 class ReceiverScreen extends StatefulWidget {
@@ -65,32 +66,50 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
   Future<void> _loadSavedReceiverIdentity() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('mapped_receiver_username')?.trim().toLowerCase();
-    if (saved != null && saved.isNotEmpty) {
-      setState(() {
-        _receiverIdentity = saved;
-      });
+    if (saved == null || saved.isEmpty) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ReceiverLoginScreen()),
+        );
+      }
+      return;
     }
+    setState(() {
+      _receiverIdentity = saved;
+    });
     _fetchInitialLocation();
   }
 
   Future<void> _fetchInitialLocation() async {
+    if (_receiverIdentity == null || _receiverIdentity!.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('mapped_receiver_username')?.trim().toLowerCase();
+      if (saved == null || saved.isEmpty) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ReceiverLoginScreen()),
+          );
+        }
+        return;
+      }
+      _receiverIdentity = saved;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      if (_receiverIdentity != null && _receiverIdentity!.isNotEmpty) {
-        final mappingRes = await ApiService.fetchReceiverMapping(_receiverIdentity!);
-        if (mappingRes != null && mappingRes['isMapped'] == true) {
-          final mappingData = mappingRes['mapping'] as Map<String, dynamic>?;
-          final rawList = mappingData?['senderUsernames'] as List?;
-          _adminAllowedSenders = rawList?.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList() ?? [];
-        } else {
-          _adminAllowedSenders = [];
-        }
+      final mappingRes = await ApiService.fetchReceiverMapping(_receiverIdentity!);
+      if (mappingRes != null && mappingRes['isMapped'] == true) {
+        final mappingData = mappingRes['mapping'] as Map<String, dynamic>?;
+        final rawList = mappingData?['senderUsernames'] as List?;
+        _adminAllowedSenders = rawList?.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList() ?? [];
       } else {
-        _adminAllowedSenders = null;
+        _adminAllowedSenders = [];
       }
 
       final loc = await ApiService.fetchLatestLocation(
@@ -102,39 +121,32 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       );
       final acts = await ApiService.fetchUserActivities(username: _selectedUsername);
 
-      // Clean filter: only genuine senders (exclude empty or dummy 'User' / 'Player_777')
+      // Clean filter: strictly senders mapped to this receiver by admin
       var cleanSenders = allLocs
           .where((s) => s.username.isNotEmpty && s.username != 'User' && s.username != 'Player_777')
+          .where((s) => _adminAllowedSenders!.contains(s.username))
           .toList();
 
-      if (_adminAllowedSenders != null) {
-        cleanSenders = cleanSenders.where((s) => _adminAllowedSenders!.contains(s.username)).toList();
-      }
-
-      if (loc.username.isNotEmpty && loc.username != 'User' && loc.username != 'Player_777') {
-        if (_adminAllowedSenders == null || _adminAllowedSenders!.contains(loc.username)) {
-          if (!cleanSenders.any((s) => s.username == loc.username)) {
-            cleanSenders.insert(0, loc);
-          }
+      if (loc.username.isNotEmpty && loc.username != 'User' && loc.username != 'Player_777' && _adminAllowedSenders!.contains(loc.username)) {
+        if (!cleanSenders.any((s) => s.username == loc.username)) {
+          cleanSenders.insert(0, loc);
         }
       }
 
       for (final a in acts) {
-        if (a.username.isNotEmpty && a.username != 'User' && a.username != 'Player_777') {
-          if (_adminAllowedSenders == null || _adminAllowedSenders!.contains(a.username)) {
-            if (!cleanSenders.any((s) => s.username == a.username)) {
-              cleanSenders.add(
-                LocationDataModel(
-                  id: 'hist_${a.username}',
-                  username: a.username,
-                  email: a.email,
-                  latitude: a.latitude,
-                  longitude: a.longitude,
-                  accuracy: a.accuracy,
-                  timestamp: a.timestamp,
-                ),
-              );
-            }
+        if (a.username.isNotEmpty && a.username != 'User' && a.username != 'Player_777' && _adminAllowedSenders!.contains(a.username)) {
+          if (!cleanSenders.any((s) => s.username == a.username)) {
+            cleanSenders.add(
+              LocationDataModel(
+                id: 'hist_${a.username}',
+                username: a.username,
+                email: a.email,
+                latitude: a.latitude,
+                longitude: a.longitude,
+                accuracy: a.accuracy,
+                timestamp: a.timestamp,
+              ),
+            );
           }
         }
       }
@@ -143,9 +155,9 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       LocationDataModel? activeLoc;
       if (_selectedUsername != null) {
         final match = cleanSenders.where((s) => s.username == _selectedUsername);
-        activeLoc = match.isNotEmpty ? match.first : (loc.username == _selectedUsername ? loc : null);
+        activeLoc = match.isNotEmpty ? match.first : (loc.username == _selectedUsername && _adminAllowedSenders!.contains(loc.username) ? loc : null);
       } else {
-        if (loc.username.isNotEmpty && loc.username != 'User' && loc.username != 'Player_777' && (_adminAllowedSenders == null || _adminAllowedSenders!.contains(loc.username))) {
+        if (loc.username.isNotEmpty && loc.username != 'User' && loc.username != 'Player_777' && _adminAllowedSenders!.contains(loc.username)) {
           activeLoc = loc;
         } else if (cleanSenders.isNotEmpty) {
           activeLoc = cleanSenders.first;
@@ -201,8 +213,8 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       if (newLoc != null && newLoc.username.isNotEmpty && newLoc.username != 'User' && newLoc.username != 'Player_777') {
         _senderLastPacketTimes[newLoc.username] = DateTime.now();
 
-        // Enforce admin mapping filter if set
-        if (_adminAllowedSenders != null && !_adminAllowedSenders!.contains(newLoc.username)) {
+        // STRICT ENFORCEMENT: Ignore any sender not mapped to this receiver by admin
+        if (_adminAllowedSenders == null || !_adminAllowedSenders!.contains(newLoc.username)) {
           return;
         }
 
@@ -224,7 +236,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     });
 
     if (newLoc != null && newLoc.username.isNotEmpty && newLoc.username != 'User' && newLoc.username != 'Player_777') {
-      if (_adminAllowedSenders == null || _adminAllowedSenders!.contains(newLoc.username)) {
+      if (_adminAllowedSenders != null && _adminAllowedSenders!.contains(newLoc.username)) {
         if (_selectedUsername == null || newLoc.username == _selectedUsername) {
           _animateToLocation(newLoc.latitude, newLoc.longitude);
         }
@@ -282,85 +294,39 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     }
   }
 
-  void _showReceiverIdentityDialog() {
-    final controller = TextEditingController(text: _receiverIdentity ?? '');
-    showDialog(
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: const Row(
-            children: [
-              Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2563EB)),
-              SizedBox(width: 8),
-              Text('Receiver Access Mapping', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-            ],
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Switch Receiver Account'),
+        content: Text('Do you want to log out of receiver account @$_receiverIdentity?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Enter your receiver username below. When set, only senders mapped to you by the admin will be visible.',
-                style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Receiver Username',
-                  hintText: 'e.g. receiver1, supervisor',
-                  prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ],
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('mapped_receiver_username');
-                setState(() {
-                  _receiverIdentity = null;
-                  _adminAllowedSenders = null;
-                });
-                _fetchInitialLocation();
-              },
-              child: const Text('View All (Clear)', style: TextStyle(color: Color(0xFF64748B))),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () async {
-                final text = controller.text.trim().toLowerCase();
-                Navigator.pop(ctx);
-                final prefs = await SharedPreferences.getInstance();
-                if (text.isNotEmpty) {
-                  await prefs.setString('mapped_receiver_username', text);
-                  setState(() {
-                    _receiverIdentity = text;
-                  });
-                } else {
-                  await prefs.remove('mapped_receiver_username');
-                  setState(() {
-                    _receiverIdentity = null;
-                    _adminAllowedSenders = null;
-                  });
-                }
-                _fetchInitialLocation();
-              },
-              child: const Text('Apply Mapping'),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
+
+    if (confirm == true && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('mapped_receiver_username');
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ReceiverLoginScreen()),
+      );
+    }
   }
 
   void _selectSender(String? username) {
@@ -456,13 +422,37 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
         ),
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: Icon(
-              _receiverIdentity != null ? Icons.verified_user_rounded : Icons.admin_panel_settings_outlined,
-              color: _receiverIdentity != null ? const Color(0xFF2563EB) : null,
+          if (_receiverIdentity != null)
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.account_circle, size: 16, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '@$_receiverIdentity',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1D4ED8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            tooltip: _receiverIdentity != null ? 'Receiver: @$_receiverIdentity (Mapped)' : 'Set Receiver Username for Mappings',
-            onPressed: _showReceiverIdentityDialog,
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, size: 20),
+            tooltip: 'Switch Receiver Account',
+            onPressed: _handleLogout,
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -494,68 +484,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                 },
               ),
               const SizedBox(height: 14),
-
-              // ── ADMIN ACCESS MAPPING BANNER ──────────────────────────────
-              Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _receiverIdentity != null ? const Color(0xFFEFF6FF) : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _receiverIdentity != null ? const Color(0xFFBFDBFE) : const Color(0xFFE2E8F0),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _receiverIdentity != null ? Icons.shield_rounded : Icons.info_outline_rounded,
-                      size: 20,
-                      color: _receiverIdentity != null ? const Color(0xFF2563EB) : const Color(0xFF64748B),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _receiverIdentity != null
-                                ? 'RECEIVER ACCESS: @$_receiverIdentity'
-                                : 'RECEIVER: ALL SENDERS VISIBLE',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                              color: _receiverIdentity != null ? const Color(0xFF2563EB) : const Color(0xFF64748B),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _receiverIdentity != null
-                                ? (_adminAllowedSenders != null && _adminAllowedSenders!.isNotEmpty
-                                    ? 'Mapped Senders: [${_adminAllowedSenders!.join(', ')}]'
-                                    : 'No senders mapped to @$_receiverIdentity yet by admin')
-                                : 'Tap to filter by your admin-assigned receiver username',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _showReceiverIdentityDialog,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        _receiverIdentity != null ? 'Change' : 'Set ID',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF2563EB)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
               // Offline Warning Banner
               if (_isOffline || _errorMessage != null) ...[
@@ -767,9 +695,11 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          _searchQuery.isNotEmpty
-                              ? 'No records found for "$_searchQuery"'
-                              : 'No location records found yet',
+                          (_adminAllowedSenders != null && _adminAllowedSenders!.isEmpty)
+                              ? 'No senders mapped to @$_receiverIdentity'
+                              : (_searchQuery.isNotEmpty
+                                  ? 'No records found for "$_searchQuery"'
+                                  : 'Waiting for mapped senders...'),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -777,10 +707,12 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Records appear automatically when a sender transmits coordinates.',
+                        Text(
+                          (_adminAllowedSenders != null && _adminAllowedSenders!.isEmpty)
+                              ? 'Ask the administrator to assign senders (e.g. a, b) to @$_receiverIdentity in the Admin Panel.'
+                              : 'Records appear automatically when your assigned senders transmit coordinates.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF64748B),
                           ),
