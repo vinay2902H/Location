@@ -9,7 +9,6 @@ import '../services/api_service.dart';
 import '../services/socket_service.dart';
 import '../widgets/coordinate_card.dart';
 import '../widgets/status_badge.dart';
-import '../widgets/server_config_dialog.dart';
 import '../widgets/username_record_card.dart';
 import 'receiver_login_screen.dart';
 import 'record_detail_screen.dart';
@@ -260,17 +259,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     }
   }
 
-  void _openConfigDialog() async {
-    final updated = await showDialog<bool>(
-      context: context,
-      builder: (_) => const ServerConfigDialog(),
-    );
-    if (updated == true && mounted) {
-      _socketService.connect();
-      _fetchInitialLocation();
-    }
-  }
-
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -435,11 +423,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Location & DB',
             onPressed: _fetchInitialLocation,
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Server Configuration',
-            onPressed: _openConfigDialog,
           ),
         ],
       ),
