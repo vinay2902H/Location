@@ -59,17 +59,17 @@ class RewardService extends ChangeNotifier {
   RewardService._internal();
 
   // ── SharedPreferences keys ────────────────────────────────────────────────
-  static const _kCoinBalance      = 'ww_coin_balance';
-  static const _kLastCheckInDate  = 'ww_last_checkin_date';   // 'yyyy-MM-dd'
-  static const _kCheckInHistory   = 'ww_checkin_history';     // JSON list<bool> len=7
-  static const _kCheckInStreak    = 'ww_checkin_streak';
-  static const _kTaskProgress     = 'ww_task_progress';       // JSON map<id, int>
-  static const _kTotalEarned      = 'ww_total_earned';
-  static const _kWeeklyEarned     = 'ww_weekly_earned';
-  static const _kWeekStart        = 'ww_week_start';          // 'yyyy-MM-dd' of Mon
-  static const _kLastAdWatchDate  = 'ww_last_ad_watch_date';  // 'yyyy-MM-dd'
+  static const _kCoinBalance        = 'ww_coin_balance';
+  static const _kLastCheckInDate    = 'ww_last_checkin_date';    // 'yyyy-MM-dd'
+  static const _kCheckInHistory     = 'ww_checkin_history';      // JSON list<bool> len=7
+  static const _kCheckInStreak      = 'ww_checkin_streak';
+  static const _kTaskProgress       = 'ww_task_progress';        // JSON map<id, int>
+  static const _kTotalEarned        = 'ww_total_earned';
+  static const _kWeeklyEarned       = 'ww_weekly_earned';
+  static const _kCycleStart         = 'ww_cycle_start';          // 'yyyy-MM-dd' user's personal Day-1
+  static const _kLastAdWatchDate    = 'ww_last_ad_watch_date';   // 'yyyy-MM-dd'
   static const _kDailyVideosWatched = 'ww_daily_videos_watched';
-  static const _kWithdrawals      = 'ww_withdrawals';         // JSON list
+  static const _kWithdrawals        = 'ww_withdrawals';          // JSON list
 
   // ── Constants ─────────────────────────────────────────────────────────────
   static const int withdrawalCoinsRequired = 100000; // 1 Lakh (1L) coins
@@ -94,6 +94,7 @@ class RewardService extends ChangeNotifier {
 
   String? _lastCheckInDate;
   String? _lastAdWatchDate;
+  String? _cycleStart;   // personal Day-1 date for this user
   bool    _isLoaded = false;
 
   // ── Public getters ────────────────────────────────────────────────────────
@@ -120,11 +121,15 @@ class RewardService extends ChangeNotifier {
     return _dailyVideosWatched < maxDailyVideos;
   }
 
-  /// Index within the 7-day cycle for today (0–6).
+  /// Index within the user's personal 7-day cycle for today (0–6).
+  /// Always starts at 0 (Day 1) on the date the user first opened the app.
   int get todayIndex {
-    final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    return now.difference(DateTime(monday.year, monday.month, monday.day)).inDays.clamp(0, 6);
+    if (_cycleStart == null) return 0;
+    final start = DateTime.parse(_cycleStart!);
+    final today = DateTime.now();
+    final startDay = DateTime(start.year, start.month, start.day);
+    final todayDay = DateTime(today.year, today.month, today.day);
+    return todayDay.difference(startDay).inDays % 7;
   }
 
   int getTaskProgress(String taskId) {
@@ -141,14 +146,32 @@ class RewardService extends ChangeNotifier {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // ── Roll over weekly data if a new Monday has started ───────────────────
-    final weekStart = prefs.getString(_kWeekStart);
-    final thisMonday = _thisMonday();
-    if (weekStart != thisMonday) {
-      // New week — reset check-in history and weekly earnings, keep balance
+    // ── Resolve / initialize this user's personal cycle start date ──────────
+    final savedCycleStart = prefs.getString(_kCycleStart);
+    if (savedCycleStart == null) {
+      // First ever launch for this user — today becomes Day 1
+      _cycleStart = _dateKey(DateTime.now());
+      await prefs.setString(_kCycleStart, _cycleStart!);
+    } else {
+      _cycleStart = savedCycleStart;
+    }
+
+    // ── Roll over if a new 7-day cycle has started ───────────────────────────
+    // A cycle is 7 days starting from _cycleStart.
+    // When today's daysSinceStart crosses a multiple of 7, reset history.
+    final cycleStartDate = DateTime.parse(_cycleStart!);
+    final todayDate = DateTime.now();
+    final startDay = DateTime(cycleStartDate.year, cycleStartDate.month, cycleStartDate.day);
+    final nowDay   = DateTime(todayDate.year, todayDate.month, todayDate.day);
+    final daysSinceStart = nowDay.difference(startDay).inDays;
+    final currentCycleNumber = daysSinceStart ~/ 7;
+
+    final savedCycleNumber = prefs.getInt('ww_cycle_number') ?? 0;
+    if (currentCycleNumber > savedCycleNumber) {
+      // New 7-day cycle — reset history and weekly earnings, keep balance
       _checkInHistory = List.filled(7, false);
       _weeklyEarned   = 0;
-      await prefs.setString(_kWeekStart, thisMonday);
+      await prefs.setInt('ww_cycle_number', currentCycleNumber);
       await prefs.setString(_kCheckInHistory, jsonEncode(_checkInHistory));
       await prefs.setInt(_kWeeklyEarned, 0);
       _taskProgress.remove('checkin_3days');
@@ -384,12 +407,6 @@ class RewardService extends ChangeNotifier {
       '${dt.year.toString().padLeft(4, '0')}-'
       '${dt.month.toString().padLeft(2, '0')}-'
       '${dt.day.toString().padLeft(2, '0')}';
-
-  static String _thisMonday() {
-    final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    return _dateKey(monday);
-  }
 
   // ── Daily reward schedule (coins per day in the 7-day cycle - strictly increasing) ───
   static const List<int> dailyRewards = [25, 50, 100, 150, 200, 300, 500];
