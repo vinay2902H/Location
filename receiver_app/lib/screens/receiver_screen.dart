@@ -31,9 +31,8 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
   String? _receiverIdentity;
   List<String>? _adminAllowedSenders;
 
-  bool _isLoading = true;
-  String? _errorMessage;
   bool _isOffline = false;
+  String? _errorMessage;
 
   final Map<String, DateTime> _senderLastPacketTimes = {};
   Timer? _autoFetchTimer;
@@ -100,7 +99,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
 
       if (!isBackgroundPeriodic) {
         setState(() {
-          _isLoading = true;
           _errorMessage = null;
         });
       }
@@ -170,7 +168,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       setState(() {
         _location = activeLoc;
         _allSenders = cleanSenders;
-        _isLoading = false;
         _isOffline = false;
         _errorMessage = null;
       });
@@ -180,7 +177,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
         if (!isBackgroundPeriodic || _allSenders.isEmpty) {
           if (e.isNetworkError) {
             _isOffline = true;
@@ -193,7 +189,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
         if (!isBackgroundPeriodic || _allSenders.isEmpty) {
           _errorMessage = 'Failed to load location: $e';
         }
@@ -437,279 +432,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── GPS TELEMETRY & SENDER STATUS CARD ────────────────────────
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFF334155)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB).withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.satellite_alt_rounded,
-                                color: Color(0xFF60A5FA),
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'GPS TELEMETRY',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  hasLocation
-                                      ? '@${_location!.username}'
-                                      : (_receiverIdentity != null ? '@$_receiverIdentity' : 'Receiver Active'),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        if (hasLocation)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: _isSenderOnline(_location!)
-                                  ? const Color(0xFF16A34A).withValues(alpha: 0.2)
-                                  : const Color(0xFFDC2626).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: _isSenderOnline(_location!)
-                                    ? const Color(0xFF22C55E)
-                                    : const Color(0xFFEF4444),
-                                width: 1.2,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: _isSenderOnline(_location!)
-                                        ? const Color(0xFF22C55E)
-                                        : const Color(0xFFEF4444),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _isSenderOnline(_location!) ? 'ONLINE' : 'OFFLINE',
-                                  style: TextStyle(
-                                    color: _isSenderOnline(_location!)
-                                        ? const Color(0xFF86EFAC)
-                                        : const Color(0xFFFCA5A5),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF334155),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_isLoading) ...[
-                                  const SizedBox(
-                                    width: 10,
-                                    height: 10,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.8,
-                                      color: Color(0xFF60A5FA),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
-                                Text(
-                                  _isLoading ? 'CONNECTING...' : 'READY',
-                                  style: const TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    if (hasLocation) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF020617),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF1E293B)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            Column(
-                              children: [
-                                const Text(
-                                  'LATITUDE',
-                                  style: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  _location!.latitude.toStringAsFixed(6),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13.5,
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Container(width: 1, height: 28, color: const Color(0xFF334155)),
-                            Column(
-                              children: [
-                                const Text(
-                                  'LONGITUDE',
-                                  style: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  _location!.longitude.toStringAsFixed(6),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13.5,
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Container(width: 1, height: 28, color: const Color(0xFF334155)),
-                            Column(
-                              children: [
-                                const Text(
-                                  'ACCURACY',
-                                  style: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '±${_location!.accuracy.toStringAsFixed(1)}m',
-                                  style: const TextStyle(
-                                    color: Color(0xFF60A5FA),
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Updated: $lastUpdatedStr',
-                            style: const TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 11.5,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: _openInGoogleMaps,
-                            child: const Row(
-                              children: [
-                                Text(
-                                  'Open in Google Maps',
-                                  style: TextStyle(
-                                    color: Color(0xFF60A5FA),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                SizedBox(width: 4),
-                                Icon(
-                                  Icons.open_in_new_rounded,
-                                  size: 14,
-                                  color: Color(0xFF60A5FA),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      const Text(
-                        'Waiting for mapped senders to broadcast location data...',
-                        style: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
 
               // Offline Warning Banner
               if (_isOffline || _errorMessage != null) ...[
