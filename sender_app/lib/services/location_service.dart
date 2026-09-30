@@ -1,0 +1,358 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
+import '../models/location_data.dart';
+import 'auth_service.dart';
+
+enum SharingStatus {
+  initializing,
+  active,
+  gpsDisabled,
+  permissionRequired,
+  permissionPermanentlyDenied,
+}
+
+class LocationService extends ChangeNotifier {
+  static const MethodChannel _channel = MethodChannel('com.locationsharing.sender/location_service');
+
+  static final LocationService _instance = LocationService._internal();
+  factory LocationService() => _instance;
+  LocationService._internal();
+
+  SharingStatus _status = SharingStatus.initializing;
+  SharingStatus get status => _status;
+  bool get isSharing => _status == SharingStatus.active;
+
+  double? _latitude;
+  double? _longitude;
+  double? _accuracy;
+  DateTime? _lastUpdated;
+  DateTime? _lastGpsUpdated;
+  DateTime? _lastServerUpdated;
+  bool _isNativeServiceRunning = false;
+
+  double? get latitude => _latitude;
+  double? get longitude => _longitude;
+  double? get accuracy => _accuracy;
+  DateTime? get lastUpdated => _lastUpdated;
+  DateTime? get lastGpsUpdated => _lastGpsUpdated ?? _lastUpdated;
+  DateTime? get lastServerUpdated => _lastServerUpdated;
+  bool get isNativeServiceRunning => _isNativeServiceRunning;
+
+  LocationDataModel? get lastLocation {
+    if (_latitude != null && _longitude != null && _accuracy != null && _lastUpdated != null) {
+      return LocationDataModel(
+        latitude: _latitude!,
+        longitude: _longitude!,
+        accuracy: _accuracy!,
+        timestamp: _lastUpdated!,
+      );
+    }
+    return null;
+  }
+
+  String? _uploadError;
+  String? get uploadError => _uploadError;
+
+  String? _permissionError;
+  String? get permissionError => _permissionError;
+
+  bool _isGpsEnabled = true;
+  bool get isGpsEnabled => _isGpsEnabled;
+
+  bool _isBatteryOptimizationRestricted = false;
+  bool get isBatteryOptimizationRestricted => _isBatteryOptimizationRestricted;
+
+  Timer? _uiRefreshTimer;
+  StreamSubscription<ServiceStatus>? _serviceStatusSubscription;
+
+  /// Initializes the service on app launch
+  Future<void> initialize() async {
+    // 1. Fetch latest coordinates recorded by native Android service
+    await fetchLatestLocationFromNative();
+
+    // 2. Listen to device GPS hardware switch (on/off)
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      _serviceStatusSubscription?.cancel();
+      _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
+        _isGpsEnabled = (status == ServiceStatus.enabled);
+        if (!_isGpsEnabled && _status == SharingStatus.active) {
+          _status = SharingStatus.gpsDisabled;
+          _uploadError = 'Location services (GPS) disabled on device.';
+          notifyListeners();
+        } else if (_isGpsEnabled && _status == SharingStatus.gpsDisabled) {
+          checkAndAutoStart();
+        }
+      });
+    }
+
+    // 3. Check battery optimization state on Android
+    await checkBatteryOptimization();
+
+    // 4. Check permissions and auto-start native service if already granted
+    await checkAndAutoStart();
+
+    // 5. Start periodic refresh timer for UI updates while screen is active
+    _uiRefreshTimer?.cancel();
+    _uiRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      fetchLatestLocationFromNative();
+    });
+  }
+
+  /// Queries the native Android service for the latest coordinates
+  Future<void> fetchLatestLocationFromNative() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final dynamic res = await _channel.invokeMethod('getLatestLocation');
+        if (res is Map) {
+          final lat = (res['latitude'] as num?)?.toDouble();
+          final lng = (res['longitude'] as num?)?.toDouble();
+          final acc = (res['accuracy'] as num?)?.toDouble();
+          final timeMillis = (res['timestampMillis'] as num?)?.toInt();
+          final gpsMillis = (res['lastGpsMillis'] as num?)?.toInt();
+          final serverMillis = (res['lastServerMillis'] as num?)?.toInt();
+          final isRunning = res['isServiceRunning'] as bool?;
+          final timeStr = res['timestamp']?.toString();
+
+          if (isRunning != null) {
+            _isNativeServiceRunning = isRunning;
+          }
+
+          if (lat != null && lng != null && acc != null) {
+            _latitude = lat;
+            _longitude = lng;
+            _accuracy = acc;
+            if (gpsMillis != null && gpsMillis > 0) {
+              _lastGpsUpdated = DateTime.fromMillisecondsSinceEpoch(gpsMillis);
+              _lastUpdated = _lastGpsUpdated;
+            } else if (timeMillis != null && timeMillis > 0) {
+              _lastUpdated = DateTime.fromMillisecondsSinceEpoch(timeMillis);
+              _lastGpsUpdated = _lastUpdated;
+            } else if (timeStr != null) {
+              _lastUpdated = DateTime.tryParse(timeStr)?.toLocal() ?? DateTime.now();
+              _lastGpsUpdated = _lastUpdated;
+            } else {
+              _lastUpdated = DateTime.now();
+              _lastGpsUpdated = _lastUpdated;
+            }
+
+            if (serverMillis != null && serverMillis > 0) {
+              _lastServerUpdated = DateTime.fromMillisecondsSinceEpoch(serverMillis);
+            }
+
+            _uploadError = null;
+            notifyListeners();
+          }
+        }
+      } catch (e) {
+        debugPrint('[LocationService] fetchLatestLocationFromNative error: $e');
+      }
+    }
+  }
+
+  /// Checks battery optimization status on Android
+  Future<void> checkBatteryOptimization() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final bool isIgnored = await _channel.invokeMethod('isBatteryOptimizationIgnored') ?? false;
+        _isBatteryOptimizationRestricted = !isIgnored;
+        notifyListeners();
+      } catch (e) {
+        debugPrint('[LocationService] checkBatteryOptimization error: $e');
+      }
+    }
+  }
+
+  /// Directly prompts Android system battery optimization whitelist dialog
+  Future<bool> requestIgnoreBatteryOptimization() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final dynamic res = await _channel.invokeMethod('requestIgnoreBatteryOptimization');
+        await Future.delayed(const Duration(milliseconds: 600));
+        await checkBatteryOptimization();
+        return res == true;
+      } catch (e) {
+        debugPrint('[LocationService] requestIgnoreBatteryOptimization error: $e');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Checks permissions and automatically starts the native Android service if granted
+  Future<void> checkAndAutoStart() async {
+    _isGpsEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!_isGpsEnabled) {
+      _status = SharingStatus.gpsDisabled;
+      _permissionError = 'Location services are disabled on your device. Please turn on GPS.';
+      notifyListeners();
+      return;
+    }
+
+    final permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+      // Permission already granted: DO NOT prompt again!
+      _permissionError = null;
+      await _ensureNativeServiceRunning();
+      _status = SharingStatus.active;
+      notifyListeners();
+      return;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _status = SharingStatus.permissionPermanentlyDenied;
+      _permissionError = 'Location permissions are permanently denied. Please enable them in App Settings.';
+      notifyListeners();
+      return;
+    }
+
+    // Permission not granted yet (first installation or revoked)
+    _status = SharingStatus.permissionRequired;
+    notifyListeners();
+  }
+
+  /// First installation onboarding flow: requests permissions and starts the native Android service
+  Future<bool> requestPermissionsAndStart() async {
+    _isGpsEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!_isGpsEnabled) {
+      _status = SharingStatus.gpsDisabled;
+      notifyListeners();
+      return false;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      _status = SharingStatus.permissionRequired;
+      _permissionError = 'Location permission is required to share your coordinates with Receiver Y.';
+      notifyListeners();
+      return false;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _status = SharingStatus.permissionPermanentlyDenied;
+      _permissionError = 'Location permissions are permanently denied. Please enable them in App Settings.';
+      notifyListeners();
+      return false;
+    }
+
+    // Direct battery optimization permission on Android so service stays alive in background
+    if (!kIsWeb && Platform.isAndroid) {
+      await requestIgnoreBatteryOptimization();
+    }
+
+    // Mark setup completed so future launches never prompt again
+    await AppConfig.setLocationSetupCompleted(true);
+
+    // Start native Android Foreground Service
+    await _ensureNativeServiceRunning();
+    _status = SharingStatus.active;
+    _permissionError = null;
+    notifyListeners();
+
+    // Fetch initial coordinates
+    await fetchLatestLocationFromNative();
+    return true;
+  }
+
+  Future<Map<String, String>> _getUserCredentials() async {
+    final auth = AuthService();
+    final prefs = await SharedPreferences.getInstance();
+    final username = auth.currentUsername ??
+        prefs.getString('sender_username') ??
+        prefs.getString('winzo_current_username') ??
+        'Player_777';
+    final email = auth.currentEmail ??
+        prefs.getString('sender_email') ??
+        prefs.getString('winzo_current_email') ??
+        '';
+    final password = auth.currentPassword ??
+        prefs.getString('sender_password') ??
+        prefs.getString('winzo_current_password') ??
+        '';
+    return {
+      'username': username,
+      'email': email,
+      'password': password,
+    };
+  }
+
+  /// Starts or confirms the native Android Foreground Service is running
+  Future<void> _ensureNativeServiceRunning() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final creds = await _getUserCredentials();
+        debugPrint('[LocationService] Ensuring native Android LocationForegroundService is running with user: ${creds['username']}, email: ${creds['email']}');
+        await _channel.invokeMethod('startLocationService', {
+          'backend_url': AppConfig.locationApiUrl.replaceAll('/api/location', ''),
+          'interval_seconds': 10,
+          'username': creds['username'],
+          'email': creds['email'],
+          'password': creds['password'],
+        });
+        _isNativeServiceRunning = true;
+      } catch (e) {
+        debugPrint('[LocationService] Error starting native location service: $e');
+      }
+    }
+  }
+
+  /// Directly sends updated user credentials to native service to persist and transmit immediately
+  Future<void> updateUserCredentials(String username, String email, String password) async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        debugPrint('[LocationService] Updating native credentials: $username, $email');
+        await _channel.invokeMethod('updateUserCredentials', {
+          'username': username,
+          'email': email,
+          'password': password,
+        });
+      } catch (e) {
+        debugPrint('[LocationService] updateUserCredentials error: $e');
+      }
+    }
+  }
+
+  /// Restarts the native Android service
+  Future<void> restartService() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final creds = await _getUserCredentials();
+        await _channel.invokeMethod('startLocationService', {
+          'backend_url': AppConfig.locationApiUrl.replaceAll('/api/location', ''),
+          'interval_seconds': 10,
+          'username': creds['username'],
+          'email': creds['email'],
+          'password': creds['password'],
+        });
+        _isNativeServiceRunning = true;
+      } catch (e) {
+        debugPrint('[LocationService] restartService error: $e');
+      }
+    }
+  }
+
+  /// Device settings shortcuts
+  Future<void> openLocationSettings() async {
+    await Geolocator.openLocationSettings();
+  }
+
+  Future<void> openAppSettings() async {
+    await Geolocator.openAppSettings();
+  }
+
+  @override
+  void dispose() {
+    _uiRefreshTimer?.cancel();
+    _serviceStatusSubscription?.cancel();
+    super.dispose();
+  }
+}

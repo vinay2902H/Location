@@ -1,0 +1,114 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class AppConfig {
+  static const String _keyBaseUrl = 'sender_backend_url';
+  static const String _keyUpdateIntervalSec = 'sender_update_interval_sec';
+  static const String _keySetupCompleted = 'locationSetupCompleted';
+  static const String _keyLastLat = 'sender_last_lat';
+  static const String _keyLastLng = 'sender_last_lng';
+  static const String _keyLastAcc = 'sender_last_acc';
+  static const String _keyLastTime = 'sender_last_time';
+
+  // Active backend URL: 10.0.2.2 for Android emulator, 127.0.0.1 for desktop/web
+  static String get defaultBaseUrl {
+    if (!kIsWeb && Platform.isAndroid) {
+      return 'http://10.0.2.2:5001';
+    }
+    return 'http://127.0.0.1:5001';
+  }
+
+  // Default to 10 seconds per requirement for continuous real-time updates
+  static const int defaultUpdateIntervalSeconds = 10; // 10 seconds
+
+  static String _baseUrl = 'http://10.0.2.2:5001';
+  static int _updateIntervalSeconds = defaultUpdateIntervalSeconds;
+  static bool _locationSetupCompleted = false;
+
+  static String get baseUrl => _baseUrl;
+  static int get updateIntervalSeconds => _updateIntervalSeconds;
+  static int get updateIntervalMinutes => (_updateIntervalSeconds / 60).ceil();
+  static String get formattedInterval => _updateIntervalSeconds < 60
+      ? '${_updateIntervalSeconds}s'
+      : '$updateIntervalMinutes min';
+  static bool get locationSetupCompleted => _locationSetupCompleted;
+
+  static Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString(_keyBaseUrl);
+    if (savedUrl == null || savedUrl.isEmpty || savedUrl.contains('onrender.com')) {
+      _baseUrl = defaultBaseUrl;
+      await prefs.setString(_keyBaseUrl, _baseUrl);
+    } else {
+      _baseUrl = savedUrl;
+    }
+    final savedInterval = prefs.getInt(_keyUpdateIntervalSec);
+    if (savedInterval == null || savedInterval > 60) {
+      // Migrate legacy 15-minute default to 10 seconds
+      _updateIntervalSeconds = defaultUpdateIntervalSeconds;
+      await prefs.setInt(_keyUpdateIntervalSec, _updateIntervalSeconds);
+    } else {
+      _updateIntervalSeconds = savedInterval;
+    }
+    _locationSetupCompleted = prefs.getBool(_keySetupCompleted) ?? false;
+  }
+
+  static Future<void> setBaseUrl(String url) async {
+    _baseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyBaseUrl, _baseUrl);
+  }
+
+  static Future<void> setUpdateIntervalSeconds(int seconds) async {
+    if (seconds < 5) seconds = 5;
+    _updateIntervalSeconds = seconds;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyUpdateIntervalSec, _updateIntervalSeconds);
+  }
+
+  static Future<void> setUpdateIntervalMinutes(int minutes) async {
+    await setUpdateIntervalSeconds(minutes * 60);
+  }
+
+  static Future<void> setLocationSetupCompleted(bool completed) async {
+    _locationSetupCompleted = completed;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keySetupCompleted, completed);
+  }
+
+  static Future<void> saveLastLocation({
+    required double latitude,
+    required double longitude,
+    required double accuracy,
+    required DateTime timestamp,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_keyLastLat, latitude);
+    await prefs.setDouble(_keyLastLng, longitude);
+    await prefs.setDouble(_keyLastAcc, accuracy);
+    await prefs.setString(_keyLastTime, timestamp.toIso8601String());
+  }
+
+  static Future<Map<String, dynamic>?> getLastLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lat = prefs.getDouble(_keyLastLat);
+    final lng = prefs.getDouble(_keyLastLng);
+    final acc = prefs.getDouble(_keyLastAcc);
+    final timeStr = prefs.getString(_keyLastTime);
+    if (lat != null && lng != null && acc != null && timeStr != null) {
+      return {
+        'latitude': lat,
+        'longitude': lng,
+        'accuracy': acc,
+        'timestamp': DateTime.tryParse(timeStr) ?? DateTime.now(),
+      };
+    }
+    return null;
+  }
+
+  static String get locationApiUrl => '$_baseUrl/api/location';
+  static String get healthApiUrl => '$_baseUrl/api/health';
+  static String get authRegisterUrl => '$_baseUrl/api/auth/register';
+  static String get authLoginUrl => '$_baseUrl/api/auth/login';
+}
