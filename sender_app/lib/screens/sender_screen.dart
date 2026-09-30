@@ -201,6 +201,9 @@ class _SenderScreenState extends State<SenderScreen>
       });
     }
 
+    // Ensure reward service data and 7-day cycle is loaded for this user
+    await _rewardService.loadForUser(resolvedUser);
+
     // Keep native foreground service synced
     await _locationService.updateUserCredentials(resolvedUser, savedEmail, savedPassword);
   }

@@ -197,12 +197,30 @@ void main() {
     expect(auth.currentUsername, 'SenderPro');
   });
 
-  testWidgets('Verify removed UI elements are absent: PRO VIP, Battery Optimization, Test Coins', (tester) async {
-    // Check that strings do not appear on tabs
-    expect(find.text('PRO VIP'), findsNothing);
-    expect(find.text('Battery Optimization'), findsNothing);
-    expect(find.text('Background Live Service'), findsNothing);
-    expect(find.text('+1L Test Coins'), findsNothing);
+  test('New user login always begins check-in cycle at Day 1 (todayIndex == 0)', () async {
+    final service = RewardService();
+
+    // User A logs in for the first time
+    await service.loadForUser('UserAlpha');
+    expect(service.todayIndex, 0); // Day 1
+    expect(service.todayCheckedIn, isFalse);
+    expect(service.checkInHistory, equals(List.filled(7, false)));
+
+    // User A checks in for Day 1
+    final earned = await service.claimDailyCheckIn(25);
+    expect(earned, 25);
+    expect(service.todayCheckedIn, isTrue);
+    expect(service.checkInHistory[0], isTrue);
+    expect(service.checkInStreak, 1);
+
+    // User B (new login) registers/logs in
+    await service.loadForUser('UserBeta');
+    // User B must start fresh on Day 1!
+    expect(service.todayIndex, 0); // Day 1
+    expect(service.todayCheckedIn, isFalse);
+    expect(service.checkInHistory, equals(List.filled(7, false)));
+    expect(service.coinBalance, 0);
+    expect(service.checkInStreak, 0);
   });
 }
 

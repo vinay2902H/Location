@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import 'reward_service.dart';
 
 class AuthResult {
   final bool success;
@@ -376,6 +377,8 @@ class AuthService extends ChangeNotifier {
     await prefs.remove(_keyCurrentUsername);
     await prefs.remove(_keyCurrentEmail);
     await prefs.remove(_keyCurrentPassword);
+
+    await RewardService().loadForUser(null);
 
     notifyListeners();
   }

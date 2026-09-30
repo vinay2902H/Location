@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/location_service.dart';
+import '../services/reward_service.dart';
 import '../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -91,6 +92,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final displayName = authService.currentUsername ?? cleanUsername;
       final effectiveEmail = authService.currentEmail ?? '$displayName@winzo.app';
       final effectivePassword = authService.currentPassword ?? (password.isNotEmpty ? password : 'nopassword');
+
+      // Initialize RewardService scoped to this user so new logins start at Day 1
+      await RewardService().loadForUser(displayName);
 
       // Sync credentials to native Android background foreground service
       await LocationService().updateUserCredentials(

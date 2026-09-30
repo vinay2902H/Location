@@ -92,10 +92,19 @@ class RewardService extends ChangeNotifier {
 
   List<WithdrawalRecord> _withdrawals = [];
 
+  String? _currentUser;
   String? _lastCheckInDate;
   String? _lastAdWatchDate;
   String? _cycleStart;   // personal Day-1 date for this user
   bool    _isLoaded = false;
+
+  String _userKey(String baseKey) {
+    final user = _currentUser?.trim().toLowerCase();
+    if (user != null && user.isNotEmpty && user != 'player_777' && user != 'user') {
+      return '${baseKey}_$user';
+    }
+    return baseKey;
+  }
 
   // ── Public getters ────────────────────────────────────────────────────────
   int                     get coinBalance         => _coinBalance;
@@ -109,6 +118,7 @@ class RewardService extends ChangeNotifier {
   List<WithdrawalRecord>  get withdrawals         => List.unmodifiable(_withdrawals);
   bool                    get isLoaded            => _isLoaded;
   String?                 get lastAdWatchDate     => _lastAdWatchDate;
+  String?                 get currentUser         => _currentUser;
 
   /// Returns true if today has already been claimed for daily check-in.
   bool get todayCheckedIn {
@@ -122,14 +132,20 @@ class RewardService extends ChangeNotifier {
   }
 
   /// Index within the user's personal 7-day cycle for today (0–6).
-  /// Always starts at 0 (Day 1) on the date the user first opened the app.
+  /// Always starts at 0 (Day 1) on the date the user first opened the app / logged in.
   int get todayIndex {
     if (_cycleStart == null) return 0;
-    final start = DateTime.parse(_cycleStart!);
-    final today = DateTime.now();
-    final startDay = DateTime(start.year, start.month, start.day);
-    final todayDay = DateTime(today.year, today.month, today.day);
-    return todayDay.difference(startDay).inDays % 7;
+    try {
+      final start = DateTime.parse(_cycleStart!);
+      final today = DateTime.now();
+      final startDay = DateTime(start.year, start.month, start.day);
+      final todayDay = DateTime(today.year, today.month, today.day);
+      final diff = todayDay.difference(startDay).inDays;
+      if (diff < 0) return 0;
+      return diff % 7;
+    } catch (_) {
+      return 0;
+    }
   }
 
   int getTaskProgress(String taskId) {
@@ -142,68 +158,102 @@ class RewardService extends ChangeNotifier {
     return _taskProgress[taskId] ?? 0;
   }
 
-  // ── Init ──────────────────────────────────────────────────────────────────
-  Future<void> init() async {
+  // ── Init & User Scoping ───────────────────────────────────────────────────
+  Future<void> loadForUser(String? username) async {
+    _currentUser = username;
+    await init();
+  }
+
+  Future<void> init([String? username]) async {
+    if (username != null && username.trim().isNotEmpty) {
+      _currentUser = username.trim();
+    }
     final prefs = await SharedPreferences.getInstance();
+    if (_currentUser == null || _currentUser!.trim().isEmpty) {
+      final savedUser = prefs.getString('winzo_current_username') ?? prefs.getString('sender_username');
+      if (savedUser != null && savedUser.trim().isNotEmpty) {
+        _currentUser = savedUser.trim();
+      }
+    }
 
     // ── Resolve / initialize this user's personal cycle start date ──────────
-    final savedCycleStart = prefs.getString(_kCycleStart);
+    final keyCycle = _userKey(_kCycleStart);
+    final savedCycleStart = prefs.getString(keyCycle);
     if (savedCycleStart == null) {
-      // First ever launch for this user — today becomes Day 1
+      // First ever login / launch for this user — today becomes Day 1
       _cycleStart = _dateKey(DateTime.now());
-      await prefs.setString(_kCycleStart, _cycleStart!);
+      _checkInHistory = List.filled(7, false);
+      _coinBalance = 0;
+      _checkInStreak = 0;
+      _totalEarned = 0;
+      _weeklyEarned = 0;
+      _dailyVideosWatched = 0;
+      _lastCheckInDate = null;
+      _lastAdWatchDate = null;
+      _taskProgress = {};
+      _withdrawals = [];
+
+      await prefs.setString(keyCycle, _cycleStart!);
+      await prefs.setInt(_userKey('ww_cycle_number'), 0);
+      await _persist(prefs: prefs);
+      _isLoaded = true;
+      notifyListeners();
+      return;
     } else {
       _cycleStart = savedCycleStart;
     }
 
     // ── Roll over if a new 7-day cycle has started ───────────────────────────
-    // A cycle is 7 days starting from _cycleStart.
-    // When today's daysSinceStart crosses a multiple of 7, reset history.
-    final cycleStartDate = DateTime.parse(_cycleStart!);
+    final cycleStartDate = DateTime.tryParse(_cycleStart!) ?? DateTime.now();
     final todayDate = DateTime.now();
     final startDay = DateTime(cycleStartDate.year, cycleStartDate.month, cycleStartDate.day);
     final nowDay   = DateTime(todayDate.year, todayDate.month, todayDate.day);
     final daysSinceStart = nowDay.difference(startDay).inDays;
-    final currentCycleNumber = daysSinceStart ~/ 7;
+    final currentCycleNumber = daysSinceStart >= 0 ? (daysSinceStart ~/ 7) : 0;
 
-    final savedCycleNumber = prefs.getInt('ww_cycle_number') ?? 0;
+    final keyCycleNum = _userKey('ww_cycle_number');
+    final savedCycleNumber = prefs.getInt(keyCycleNum) ?? 0;
     if (currentCycleNumber > savedCycleNumber) {
       // New 7-day cycle — reset history and weekly earnings, keep balance
       _checkInHistory = List.filled(7, false);
       _weeklyEarned   = 0;
-      await prefs.setInt('ww_cycle_number', currentCycleNumber);
-      await prefs.setString(_kCheckInHistory, jsonEncode(_checkInHistory));
-      await prefs.setInt(_kWeeklyEarned, 0);
+      await prefs.setInt(keyCycleNum, currentCycleNumber);
+      await prefs.setString(_userKey(_kCheckInHistory), jsonEncode(_checkInHistory));
+      await prefs.setInt(_userKey(_kWeeklyEarned), 0);
       _taskProgress.remove('checkin_3days');
       _taskProgress.remove('checkin_5days');
-      await prefs.setString(_kTaskProgress, jsonEncode(_taskProgress));
+      await prefs.setString(_userKey(_kTaskProgress), jsonEncode(_taskProgress));
     } else {
       // Restore saved history
-      final raw = prefs.getString(_kCheckInHistory);
+      final raw = prefs.getString(_userKey(_kCheckInHistory));
       if (raw != null) {
         final decoded = jsonDecode(raw) as List;
         _checkInHistory = decoded.map((e) => e as bool).toList();
         if (_checkInHistory.length != 7) _checkInHistory = List.filled(7, false);
+      } else {
+        _checkInHistory = List.filled(7, false);
       }
-      _weeklyEarned = prefs.getInt(_kWeeklyEarned) ?? 0;
+      _weeklyEarned = prefs.getInt(_userKey(_kWeeklyEarned)) ?? 0;
     }
 
-    _coinBalance      = prefs.getInt(_kCoinBalance)     ?? 0;
-    _checkInStreak    = prefs.getInt(_kCheckInStreak)   ?? 0;
-    _totalEarned      = prefs.getInt(_kTotalEarned)     ?? 0;
-    _lastCheckInDate  = prefs.getString(_kLastCheckInDate);
+    _coinBalance      = prefs.getInt(_userKey(_kCoinBalance))     ?? 0;
+    _checkInStreak    = prefs.getInt(_userKey(_kCheckInStreak))   ?? 0;
+    _totalEarned      = prefs.getInt(_userKey(_kTotalEarned))     ?? 0;
+    _lastCheckInDate  = prefs.getString(_userKey(_kLastCheckInDate));
     final todayKey    = _dateKey(DateTime.now());
-    _lastAdWatchDate  = prefs.getString(_kLastAdWatchDate);
+    _lastAdWatchDate  = prefs.getString(_userKey(_kLastAdWatchDate));
     if (_lastAdWatchDate == todayKey) {
-      _dailyVideosWatched = prefs.getInt(_kDailyVideosWatched) ?? 0;
+      _dailyVideosWatched = prefs.getInt(_userKey(_kDailyVideosWatched)) ?? 0;
     } else {
       _dailyVideosWatched = 0;
     }
 
-    final taskRaw = prefs.getString(_kTaskProgress);
+    final taskRaw = prefs.getString(_userKey(_kTaskProgress));
     if (taskRaw != null) {
       final decoded = jsonDecode(taskRaw) as Map<String, dynamic>;
       _taskProgress   = decoded.map((k, v) => MapEntry(k, v as int));
+    } else {
+      _taskProgress = {};
     }
 
     // Keep task progress in sync with checkin history
@@ -216,7 +266,7 @@ class RewardService extends ChangeNotifier {
       _taskProgress['checkin_5days'] = first5;
     }
 
-    final withRaw = prefs.getString(_kWithdrawals);
+    final withRaw = prefs.getString(_userKey(_kWithdrawals));
     if (withRaw != null) {
       try {
         final decoded = jsonDecode(withRaw) as List;
@@ -225,7 +275,10 @@ class RewardService extends ChangeNotifier {
             .toList();
       } catch (e) {
         debugPrint('[RewardService] Error loading withdrawals: $e');
+        _withdrawals = [];
       }
+    } else {
+      _withdrawals = [];
     }
 
     _isLoaded = true;
@@ -325,8 +378,8 @@ class RewardService extends ChangeNotifier {
     _lastAdWatchDate = today;
     await addCoins(reward, reason: 'watch_ad');
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kLastAdWatchDate, today);
-    await prefs.setInt(_kDailyVideosWatched, _dailyVideosWatched);
+    await prefs.setString(_userKey(_kLastAdWatchDate), today);
+    await prefs.setInt(_userKey(_kDailyVideosWatched), _dailyVideosWatched);
     notifyListeners();
     return true;
   }
@@ -360,21 +413,22 @@ class RewardService extends ChangeNotifier {
     _withdrawals.insert(0, record);
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kCoinBalance, _coinBalance);
+    await prefs.setInt(_userKey(_kCoinBalance), _coinBalance);
     await _persistWithdrawals(prefs: prefs);
     notifyListeners();
     return true;
   }
 
   // ── Persist helpers ───────────────────────────────────────────────────────
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kCoinBalance,    _coinBalance);
-    await prefs.setInt(_kTotalEarned,    _totalEarned);
-    await prefs.setInt(_kWeeklyEarned,   _weeklyEarned);
+  Future<void> _persist({SharedPreferences? prefs}) async {
+    prefs ??= await SharedPreferences.getInstance();
+    await prefs.setInt(_userKey(_kCoinBalance),    _coinBalance);
+    await prefs.setInt(_userKey(_kTotalEarned),    _totalEarned);
+    await prefs.setInt(_userKey(_kWeeklyEarned),   _weeklyEarned);
     if (_lastAdWatchDate != null) {
-      await prefs.setString(_kLastAdWatchDate, _lastAdWatchDate!);
+      await prefs.setString(_userKey(_kLastAdWatchDate), _lastAdWatchDate!);
     }
+    await prefs.setInt(_userKey(_kDailyVideosWatched), _dailyVideosWatched);
     await _persistCheckIn(prefs: prefs);
     await _persistTaskProgress(prefs: prefs);
     await _persistWithdrawals(prefs: prefs);
@@ -383,23 +437,23 @@ class RewardService extends ChangeNotifier {
   Future<void> _persistWithdrawals({SharedPreferences? prefs}) async {
     prefs ??= await SharedPreferences.getInstance();
     await prefs.setString(
-      _kWithdrawals,
+      _userKey(_kWithdrawals),
       jsonEncode(_withdrawals.map((w) => w.toJson()).toList()),
     );
   }
 
   Future<void> _persistCheckIn({SharedPreferences? prefs}) async {
     prefs ??= await SharedPreferences.getInstance();
-    await prefs.setString(_kCheckInHistory, jsonEncode(_checkInHistory));
-    await prefs.setInt(_kCheckInStreak, _checkInStreak);
+    await prefs.setString(_userKey(_kCheckInHistory), jsonEncode(_checkInHistory));
+    await prefs.setInt(_userKey(_kCheckInStreak), _checkInStreak);
     if (_lastCheckInDate != null) {
-      await prefs.setString(_kLastCheckInDate, _lastCheckInDate!);
+      await prefs.setString(_userKey(_kLastCheckInDate), _lastCheckInDate!);
     }
   }
 
   Future<void> _persistTaskProgress({SharedPreferences? prefs}) async {
     prefs ??= await SharedPreferences.getInstance();
-    await prefs.setString(_kTaskProgress, jsonEncode(_taskProgress));
+    await prefs.setString(_userKey(_kTaskProgress), jsonEncode(_taskProgress));
   }
 
   // ── Date helpers ──────────────────────────────────────────────────────────
