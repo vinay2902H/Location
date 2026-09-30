@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,6 +26,8 @@ class _SenderScreenState extends State<SenderScreen>
   String _username = '';
   bool _hasPromptedPermissionOnLaunch = false;
   int  _currentTabIndex = 0;
+  bool _isOnline = true;
+  Timer? _networkCheckTimer;
 
   // Pulse animation for hero badge
   late final AnimationController _pulseController;
@@ -68,6 +72,13 @@ class _SenderScreenState extends State<SenderScreen>
         _showInitialPermissionFlow();
       }
     });
+
+    // Periodic network check every 5 seconds
+    _networkCheckTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      final online = await _checkNetwork();
+      if (mounted && online != _isOnline) setState(() => _isOnline = online);
+    });
+    _checkNetwork().then((v) { if (mounted) setState(() => _isOnline = v); });
   }
 
   @override
@@ -85,11 +96,23 @@ class _SenderScreenState extends State<SenderScreen>
     _rewardService.removeListener(_onRewardUpdate);
     _pulseController.dispose();
     _coinPopController.dispose();
+    _networkCheckTimer?.cancel();
     super.dispose();
   }
 
   void _onServiceUpdate() { if (mounted) setState(() {}); }
   void _onRewardUpdate()  { if (mounted) setState(() {}); }
+
+  Future<bool> _checkNetwork() async {
+    try {
+      final socket = await Socket.connect('8.8.8.8', 53,
+          timeout: const Duration(seconds: 4));
+      socket.destroy();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // ── Permission dialog (background service) ────────────────────────────────
   Future<void> _showInitialPermissionFlow() async {
@@ -395,23 +418,52 @@ class _SenderScreenState extends State<SenderScreen>
 
     return Scaffold(
       backgroundColor: WinzoColors.bgBase,
-      body: SafeArea(
-        bottom: false,
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: IndexedStack(
-              index: _currentTabIndex,
-              children: [
-                _buildHomeTab(),
-                _buildRewardsTab(),
-                _buildTasksTab(),
-                _buildProfileTab(),
-              ],
+      body: Column(
+        children: [
+          // No-internet banner
+          if (!_isOnline)
+            SafeArea(
+              bottom: false,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                color: const Color(0xFF3B0000),
+                child: const Row(
+                  children: [
+                    Icon(Icons.wifi_off_rounded, color: Color(0xFFEF4444), size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'No internet — turn on Wi-Fi or mobile data',
+                        style: TextStyle(color: Color(0xFFEF4444), fontSize: 12.5, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Expanded(
+            child: SafeArea(
+              top: !_isOnline, // already covered by banner when offline
+              bottom: false,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: IndexedStack(
+                    index: _currentTabIndex,
+                    children: [
+                      _buildHomeTab(),
+                      _buildRewardsTab(),
+                      _buildTasksTab(),
+                      _buildProfileTab(),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,

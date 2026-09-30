@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
@@ -22,9 +24,24 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isOnline = true;
+  Timer? _networkCheckTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkNetwork();
+    _networkCheckTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkNetwork());
+  }
+
+  Future<void> _checkNetwork() async {
+    final online = await ApiService.checkHealth();
+    if (mounted && online != _isOnline) setState(() => _isOnline = online);
+  }
 
   @override
   void dispose() {
+    _networkCheckTimer?.cancel();
     _emailController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
@@ -86,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Welcome, $displayName! Location sharing is ready.'),
+          content: Text('Welcome, $displayName! You are all set.'),
           backgroundColor: WinzoColors.bgSurface,
           behavior: SnackBarBehavior.floating,
         ),
@@ -539,7 +556,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              _isSignUp ? 'Create Account' : 'Start Sharing',
+                                              _isSignUp ? 'Create Account' : 'Enter App',
                                               style: const TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w900,
@@ -556,27 +573,59 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Offline-ready notice
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: WinzoColors.bgElevated,
-                            borderRadius: BorderRadius.circular(WinzoDimens.radiusSM),
-                            border: Border.all(color: WinzoColors.borderSubtle),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.offline_bolt_rounded, color: WinzoColors.success, size: 18),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Offline ready: The app tracks GPS coordinates on your device even without internet, and syncs automatically when reconnected.',
-                                  style: TextStyle(color: WinzoColors.textMuted, fontSize: 11.5, height: 1.35),
+                        // Network status notice
+                        if (!_isOnline)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3B0000),
+                              borderRadius: BorderRadius.circular(WinzoDimens.radiusSM),
+                              border: Border.all(color: WinzoColors.error.withAlpha(120)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.wifi_off_rounded, color: WinzoColors.error, size: 22),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'No Internet Connection',
+                                        style: TextStyle(color: WinzoColors.error, fontSize: 13, fontWeight: FontWeight.w800),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Please turn on Wi-Fi or mobile data to continue.',
+                                        style: TextStyle(color: WinzoColors.textMuted, fontSize: 11.5, height: 1.35),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: WinzoColors.bgElevated,
+                              borderRadius: BorderRadius.circular(WinzoDimens.radiusSM),
+                              border: Border.all(color: WinzoColors.borderSubtle),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.wifi_rounded, color: WinzoColors.success, size: 18),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Connected — ready to sync your progress.',
+                                    style: TextStyle(color: WinzoColors.textMuted, fontSize: 11.5, height: 1.35),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
