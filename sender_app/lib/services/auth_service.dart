@@ -47,9 +47,18 @@ class AuthService extends ChangeNotifier {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _isAuthenticated = prefs.getBool(_keyIsLoggedIn) ?? false;
-    _currentUsername = prefs.getString(_keyCurrentUsername);
-    _currentEmail = prefs.getString(_keyCurrentEmail);
-    _currentPassword = prefs.getString(_keyCurrentPassword);
+    _currentUsername = prefs.getString(_keyCurrentUsername) ?? prefs.getString(_keySenderUsername);
+    _currentEmail = prefs.getString(_keyCurrentEmail) ?? prefs.getString(_keySenderEmail);
+    _currentPassword = prefs.getString(_keyCurrentPassword) ?? prefs.getString(_keySenderPassword);
+
+    // If any saved sender username exists, auto-maintain authentication so app opens offline
+    if (_currentUsername != null &&
+        _currentUsername!.trim().isNotEmpty &&
+        _currentUsername != 'Player_777' &&
+        _currentUsername != 'User') {
+      _isAuthenticated = true;
+      await prefs.setBool(_keyIsLoggedIn, true);
+    }
 
     // If logged in, ensure native service keys are synced
     if (_isAuthenticated && _currentUsername != null && _currentUsername!.isNotEmpty) {
@@ -65,6 +74,68 @@ class AuthService extends ChangeNotifier {
 
     _isInitialized = true;
     notifyListeners();
+  }
+
+  /// Instant offline-first username login/entry for Senders
+  Future<AuthResult> loginWithUsername(String username) async {
+    final cleanUsername = username.trim();
+    if (cleanUsername.isEmpty || cleanUsername.length < 2) {
+      return AuthResult.fail('Please enter a username with at least 2 characters');
+    }
+
+    final cleanEmail = '${cleanUsername.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}@winzo.app';
+    const cleanPassword = 'nopassword';
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Immediately persist credentials locally so the app opens instantly even offline!
+    _isAuthenticated = true;
+    _currentUsername = cleanUsername;
+    _currentEmail = cleanEmail;
+    _currentPassword = cleanPassword;
+
+    await prefs.setBool(_keyIsLoggedIn, true);
+    await prefs.setString(_keyCurrentUsername, cleanUsername);
+    await prefs.setString(_keyCurrentEmail, cleanEmail);
+    await prefs.setString(_keyCurrentPassword, cleanPassword);
+    await prefs.setString(_keySenderUsername, cleanUsername);
+    await prefs.setString(_keySenderEmail, cleanEmail);
+    await prefs.setString(_keySenderPassword, cleanPassword);
+
+    // Save to local user map cache
+    final usersMap = _getUsersMap(prefs);
+    usersMap[cleanUsername.toLowerCase()] = {
+      'username': cleanUsername,
+      'email': cleanEmail,
+      'password': cleanPassword,
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    usersMap[cleanEmail.toLowerCase()] = usersMap[cleanUsername.toLowerCase()];
+    await prefs.setString(_keyUsers, jsonEncode(usersMap));
+
+    // 2. Sync immediately to native Kotlin location foreground service
+    onCredentialsUpdated?.call(cleanUsername, cleanEmail, cleanPassword);
+
+    // 3. Try to register / sync with backend asynchronously (non-blocking, fails gracefully offline)
+    try {
+      final url = Uri.parse('${AppConfig.baseUrl}/api/auth/username-login');
+      http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': cleanUsername,
+          'role': 'sender',
+        }),
+      ).timeout(const Duration(seconds: 3)).catchError((e) {
+        debugPrint('[AuthService] Backend sync notice (offline mode active): $e');
+        return http.Response('{"offline": true}', 200);
+      });
+    } catch (e) {
+      debugPrint('[AuthService] Network offline during username login: $e');
+    }
+
+    notifyListeners();
+    return AuthResult.ok();
   }
 
   /// Create a new account with email, username, and password
@@ -236,7 +307,33 @@ class AuthService extends ChangeNotifier {
 
     // Local store validation fallback
     if (!usersMap.containsKey(normalizedKey)) {
-      return AuthResult.fail('No account found for "$cleanInput". Please create an account.');
+      // Offline fallback: allow the user into the app with the entered identifier
+      final uName = cleanInput.contains('@') ? cleanInput.split('@')[0] : cleanInput;
+      final uEmail = cleanInput.contains('@') ? cleanInput : '${cleanInput.toLowerCase()}@winzo.app';
+
+      _isAuthenticated = true;
+      _currentUsername = uName;
+      _currentEmail = uEmail;
+      _currentPassword = password;
+
+      await prefs.setBool(_keyIsLoggedIn, true);
+      await prefs.setString(_keyCurrentUsername, uName);
+      await prefs.setString(_keyCurrentEmail, uEmail);
+      await prefs.setString(_keyCurrentPassword, password);
+      await prefs.setString(_keySenderUsername, uName);
+      await prefs.setString(_keySenderEmail, uEmail);
+      await prefs.setString(_keySenderPassword, password);
+
+      usersMap[normalizedKey] = {
+        'username': uName,
+        'email': uEmail,
+        'password': password,
+      };
+      await prefs.setString(_keyUsers, jsonEncode(usersMap));
+
+      onCredentialsUpdated?.call(uName, uEmail, password);
+      notifyListeners();
+      return AuthResult.ok();
     }
 
     final userData = usersMap[normalizedKey];

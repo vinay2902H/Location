@@ -36,12 +36,15 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _errorMessage = null);
     if (!_formKey.currentState!.validate()) return;
 
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    final username = _usernameController.text.trim();
+    final input = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final rawUsername = _usernameController.text.trim();
+    final cleanUsername = rawUsername.isNotEmpty
+        ? rawUsername
+        : (input.contains('@') ? input.split('@')[0] : input);
 
-    if (_isSignUp) {
-      final confirmPassword = _confirmPasswordController.text;
+    if (_isSignUp && password.isNotEmpty) {
+      final confirmPassword = _confirmPasswordController.text.trim();
       if (password != confirmPassword) {
         setState(() => _errorMessage = 'Passwords do not match');
         return;
@@ -51,9 +54,16 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     final authService = AuthService();
-    final AuthResult result = _isSignUp
-        ? await authService.register(email, password, username: username)
-        : await authService.login(email, password);
+    AuthResult result;
+
+    if (password.isEmpty || (!input.contains('@') && !_isSignUp)) {
+      // Instant offline-capable username entry
+      result = await authService.loginWithUsername(cleanUsername);
+    } else if (_isSignUp) {
+      result = await authService.register(input, password.isNotEmpty ? password : 'nopassword', username: cleanUsername);
+    } else {
+      result = await authService.login(input, password);
+    }
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -61,22 +71,22 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!result.success) {
       setState(() => _errorMessage = result.errorMessage ?? 'Authentication failed');
     } else {
-      final displayName = authService.currentUsername ?? (username.isNotEmpty ? username : email);
-      final effectiveEmail = authService.currentEmail ?? email;
-      final effectivePassword = authService.currentPassword ?? password;
+      final displayName = authService.currentUsername ?? cleanUsername;
+      final effectiveEmail = authService.currentEmail ?? '$displayName@winzo.app';
+      final effectivePassword = authService.currentPassword ?? (password.isNotEmpty ? password : 'nopassword');
 
-      // Sync real credentials immediately to native foreground service
+      // Sync credentials to native Android background foreground service
       await LocationService().updateUserCredentials(
         displayName,
         effectiveEmail,
         effectivePassword,
       );
-      await LocationService().restartService();
+      await LocationService().checkAndAutoStart();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isSignUp ? 'Account created! Welcome, $displayName 🎉' : 'Welcome back, $displayName!'),
+          content: Text('Welcome, $displayName! Location sharing is ready.'),
           backgroundColor: WinzoColors.bgSurface,
           behavior: SnackBarBehavior.floating,
         ),
@@ -302,10 +312,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: WinzoDimens.spaceMD),
                         ],
 
-                        // Email Field (Used for both Login & Signup)
-                        const Text(
-                          'Email Address',
-                          style: TextStyle(
+                        // Username or Email Field
+                        Text(
+                          _isSignUp ? 'Sender Username' : 'Username or Email',
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: WinzoColors.textSecondary,
@@ -314,15 +324,15 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
+                          keyboardType: TextInputType.text,
                           style: const TextStyle(
                             color: WinzoColors.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                           decoration: InputDecoration(
-                            hintText: _isSignUp ? 'Enter email (e.g. user@gmail.com)' : 'Enter your registered email',
+                            hintText: 'Enter username (e.g. a, b, or sender1)',
                             hintStyle: const TextStyle(color: WinzoColors.textMuted, fontSize: 13),
-                            prefixIcon: const Icon(Icons.email_rounded, color: WinzoColors.primaryLight, size: 20),
+                            prefixIcon: const Icon(Icons.person_rounded, color: WinzoColors.primaryLight, size: 20),
                             filled: true,
                             fillColor: WinzoColors.bgElevated,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -336,8 +346,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           validator: (val) {
-                            if (val == null || val.trim().isEmpty) return 'Please enter your email';
-                            if (!val.contains('@') || !val.contains('.')) return 'Please enter a valid email address';
+                            if (val == null || val.trim().isEmpty) return 'Please enter a username or email';
+                            if (val.trim().length < 2) return 'Username must be at least 2 characters';
                             return null;
                           },
                         ),
@@ -346,7 +356,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Username Field (Sign Up mode only)
                         if (_isSignUp) ...[
                           const Text(
-                            'Username',
+                            'Email Address (Optional)',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -356,15 +366,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _usernameController,
-                            keyboardType: TextInputType.text,
+                            keyboardType: TextInputType.emailAddress,
                             style: const TextStyle(
                               color: WinzoColors.textPrimary,
                               fontWeight: FontWeight.w600,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Enter username (min. 3 characters)',
+                              hintText: 'Optional email (e.g. user@gmail.com)',
                               hintStyle: const TextStyle(color: WinzoColors.textMuted, fontSize: 13),
-                              prefixIcon: const Icon(Icons.person_rounded, color: WinzoColors.primaryLight, size: 20),
+                              prefixIcon: const Icon(Icons.email_rounded, color: WinzoColors.primaryLight, size: 20),
                               filled: true,
                               fillColor: WinzoColors.bgElevated,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -377,21 +387,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 borderSide: const BorderSide(color: WinzoColors.primary, width: 1.5),
                               ),
                             ),
-                            validator: (val) {
-                              if (_isSignUp) {
-                                if (val == null || val.trim().isEmpty) return 'Please enter username';
-                                if (val.trim().length < 3) return 'Username must be at least 3 characters';
-                              }
-                              return null;
-                            },
                           ),
                           const SizedBox(height: WinzoDimens.spaceMD),
                         ],
 
                         // Password Field
-                        const Text(
-                          'Password',
-                          style: TextStyle(
+                        Text(
+                          _isSignUp ? 'Password' : 'Password (optional for offline / quick start)',
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: WinzoColors.textSecondary,
@@ -406,7 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                           decoration: InputDecoration(
-                            hintText: 'Enter password (min. 4 characters)',
+                            hintText: _isSignUp ? 'Enter password (min. 4 characters)' : 'Leave empty for instant offline start',
                             hintStyle: const TextStyle(color: WinzoColors.textMuted, fontSize: 13),
                             prefixIcon: const Icon(Icons.lock_rounded, color: WinzoColors.primaryLight, size: 20),
                             suffixIcon: IconButton(
@@ -430,8 +433,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           validator: (val) {
-                            if (val == null || val.isEmpty) return 'Please enter password';
-                            if (val.length < 4) return 'Password must be at least 4 characters';
+                            if (_isSignUp && val != null && val.isNotEmpty && val.length < 4) {
+                              return 'Password must be at least 4 characters';
+                            }
                             return null;
                           },
                         ),
@@ -535,7 +539,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              _isSignUp ? 'Create Account & Start Earning' : 'Sign In',
+                                              _isSignUp ? 'Create Account' : 'Start Sharing',
                                               style: const TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w900,
@@ -548,6 +552,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Offline-ready notice
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: WinzoColors.bgElevated,
+                            borderRadius: BorderRadius.circular(WinzoDimens.radiusSM),
+                            border: Border.all(color: WinzoColors.borderSubtle),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.offline_bolt_rounded, color: WinzoColors.success, size: 18),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Offline ready: The app tracks GPS coordinates on your device even without internet, and syncs automatically when reconnected.',
+                                  style: TextStyle(color: WinzoColors.textMuted, fontSize: 11.5, height: 1.35),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
