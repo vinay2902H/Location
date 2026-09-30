@@ -20,6 +20,8 @@ void main() {
     expect(find.textContaining('Live Location'), findsWidgets);
     expect(find.text('RECORDS BY USERNAME'), findsOneWidget);
     SocketService().disconnect();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('UsernameRecordCard displays username and navigates on arrow click',

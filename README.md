@@ -149,10 +149,10 @@ Installed exclusively on **Phone Y**.
 ## 🌐 Live Deployed Backend
 
 The backend is deployed and live on Render:
-- **Base URL**: `https://location-9ql3.onrender.com`
-- **Health Check**: [https://location-9ql3.onrender.com/api/health](https://location-9ql3.onrender.com/api/health)
-- **Location Endpoint**: `https://location-9ql3.onrender.com/api/location`
-- **Socket.IO Endpoint**: `https://location-9ql3.onrender.com`
+- **Base URL**: `https://location-7swg.onrender.com`
+- **Health Check**: [https://location-7swg.onrender.com/api/health](https://location-7swg.onrender.com/api/health)
+- **Location Endpoint**: `https://location-7swg.onrender.com/api/location`
+- **Socket.IO Endpoint**: `https://location-7swg.onrender.com`
 
 Both `sender_app` and `receiver_app` are pre-configured to connect to this URL by default.
 

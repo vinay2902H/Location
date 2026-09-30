@@ -136,7 +136,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                     borderSide: const BorderSide(
                         color: WinzoColors.primary, width: 1.5),
                   ),
-                  hintText: 'https://your-backend.onrender.com',
+                  hintText: 'https://location-7swg.onrender.com',
                   hintStyle:
                       const TextStyle(color: WinzoColors.textMuted),
                   contentPadding: const EdgeInsets.symmetric(

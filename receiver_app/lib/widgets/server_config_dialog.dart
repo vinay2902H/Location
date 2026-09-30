@@ -37,8 +37,8 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
             controller: _urlController,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
-              hintText: 'https://location-9ql3.onrender.com',
-              helperText: 'Production: https://location-9ql3.onrender.com',
+              hintText: 'https://location-7swg.onrender.com',
+              helperText: 'Production: https://location-7swg.onrender.com',
             ),
           ),
         ],

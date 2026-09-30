@@ -58,7 +58,7 @@ class LocationForegroundService : Service() {
         const val KEY_LAST_GPS_MILLIS = "flutter.sender_last_gps_millis"
         const val KEY_LAST_SERVER_MILLIS = "flutter.sender_last_server_millis"
 
-        const val DEFAULT_URL = "http://10.0.2.2:5001"
+        const val DEFAULT_URL = "https://location-7swg.onrender.com"
         const val DEFAULT_INTERVAL_SECONDS = 10L // 10 seconds fixed
 
         const val ACTION_START = "ACTION_START"
@@ -257,7 +257,7 @@ class LocationForegroundService : Service() {
             else -> DEFAULT_URL
         }.trim().trimEnd('/')
 
-        if (backendUrl.contains("onrender.com")) {
+        if (backendUrl.contains("10.0.2.2") || backendUrl.contains("location-9ql3.onrender.com")) {
             backendUrl = DEFAULT_URL
         }
 
