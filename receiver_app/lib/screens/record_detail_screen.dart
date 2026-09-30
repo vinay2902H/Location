@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -26,16 +27,31 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   late LocationDataModel _currentRecord;
   bool _isRefreshing = false;
+  DateTime? _lastPacketTime;
+  Timer? _livenessTimer;
+
+  bool get _isSenderOnline {
+    final now = DateTime.now();
+    if (_lastPacketTime != null && now.difference(_lastPacketTime!).inSeconds < 90) {
+      return true;
+    }
+    final diff = now.difference(_currentRecord.timestamp.toLocal());
+    return diff.inSeconds.abs() < 120;
+  }
 
   @override
   void initState() {
     super.initState();
     _currentRecord = widget.record;
     _socketService.addListener(_onSocketUpdated);
+    _livenessTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _livenessTimer?.cancel();
     _socketService.removeListener(_onSocketUpdated);
     _mapController?.dispose();
     super.dispose();
@@ -84,6 +100,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     if (!mounted) return;
     final newLoc = _socketService.latestLocation;
     if (newLoc != null && newLoc.username == _currentRecord.username) {
+      _lastPacketTime = DateTime.now();
       setState(() {
         _currentRecord = newLoc;
       });
@@ -143,7 +160,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLiveSocket = _socketService.isConnected;
     final timeFormatted =
         DateFormat('hh:mm:ss a').format(_currentRecord.timestamp.toLocal());
     final dateFormatted =
@@ -244,29 +260,58 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.35),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _currentRecord.username.isNotEmpty
-                              ? _currentRecord.username[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
+                    Stack(
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.35),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _currentRecord.username.isNotEmpty
+                                  ? _currentRecord.username[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 15,
+                            height: 15,
+                            decoration: BoxDecoration(
+                              color: _isSenderOnline
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFFEF4444),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (_isSenderOnline
+                                          ? const Color(0xFF22C55E)
+                                          : const Color(0xFFEF4444))
+                                      .withValues(alpha: 0.55),
+                                  blurRadius: 5,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -281,26 +326,59 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
+                                  color: _isSenderOnline
+                                      ? const Color(0xFF22C55E).withValues(alpha: 0.25)
+                                      : const Color(0xFFEF4444).withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  isLiveSocket ? '● LIVE SYNC' : '● ACTIVE',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.5,
+                                  border: Border.all(
+                                    color: _isSenderOnline
+                                        ? const Color(0xFF86EFAC)
+                                        : const Color(0xFFFCA5A5),
+                                    width: 0.8,
                                   ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _isSenderOnline
+                                            ? const Color(0xFF22C55E)
+                                            : const Color(0xFFEF4444),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _isSenderOnline ? 'ONLINE' : 'OFFLINE',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                relativeTime,
+                                _isSenderOnline ? 'Online on Internet' : 'Offline',
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
+                                  color: Colors.white.withValues(alpha: 0.95),
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '• $relativeTime',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],

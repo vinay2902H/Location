@@ -62,29 +62,53 @@ class CoordinateCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                    Stack(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.person_rounded, color: Colors.white, size: 24),
+                          ),
                         ),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.person_rounded, color: Colors.white, size: 24),
-                      ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 13,
+                            height: 13,
+                            decoration: BoxDecoration(
+                              color: !isOffline ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (!isOffline ? const Color(0xFF22C55E) : const Color(0xFFEF4444)).withValues(alpha: 0.5),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Text(
+                              const Text(
                                 'SENDER USERNAME',
                                 style: TextStyle(
                                   fontSize: 10.5,
@@ -93,8 +117,43 @@ class CoordinateCard extends StatelessWidget {
                                   color: Color(0xFF1D4ED8),
                                 ),
                               ),
-                              SizedBox(width: 6),
-                              Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 14),
+                              const SizedBox(width: 5),
+                              const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 14),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: !isOffline ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: !isOffline ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: !isOffline ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      !isOffline ? 'ONLINE' : 'OFFLINE',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                        color: !isOffline ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 2),

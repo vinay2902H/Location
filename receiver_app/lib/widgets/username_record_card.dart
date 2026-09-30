@@ -87,7 +87,7 @@ class UsernameRecordCard extends StatelessWidget {
                             child: Text(
                               record.username.isNotEmpty
                                   ? record.username[0].toUpperCase()
-                                  : 'U',
+                                  : 'S',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -96,20 +96,26 @@ class UsernameRecordCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (isLive)
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 13,
-                              height: 13,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF22C55E),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                              ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: isLive ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isLive ? const Color(0xFF22C55E) : const Color(0xFFEF4444)).withValues(alpha: 0.45),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
                             ),
                           ),
+                        ),
                       ],
                     ),
                     const SizedBox(width: 14),
@@ -138,6 +144,41 @@ class UsernameRecordCard extends StatelessWidget {
                                 Icons.verified_rounded,
                                 color: Color(0xFF2563EB),
                                 size: 15,
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isLive ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isLive ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: isLive ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isLive ? 'ONLINE' : 'OFFLINE',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                        color: isLive ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -305,15 +346,29 @@ class UsernameRecordCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isLive ? '● Live broadcasting' : '● Recorded location',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isLive
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFF64748B),
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isLive ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isLive ? 'Online on Internet' : 'Offline (No Internet)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: isLive
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFDC2626),
+                          ),
+                        ),
+                      ],
                     ),
                     const Row(
                       children: [

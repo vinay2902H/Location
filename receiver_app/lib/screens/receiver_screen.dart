@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
@@ -38,16 +39,23 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
   String? _errorMessage;
   bool _isOffline = false;
 
+  final Map<String, DateTime> _senderLastPacketTimes = {};
+  Timer? _livenessTimer;
+
   @override
   void initState() {
     super.initState();
     _socketService.addListener(_onSocketUpdated);
     _socketService.connect();
     _loadSavedReceiverIdentity();
+    _livenessTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _livenessTimer?.cancel();
     _searchController.dispose();
     _socketService.removeListener(_onSocketUpdated);
     _mapController?.dispose();
@@ -191,6 +199,8 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       }
 
       if (newLoc != null && newLoc.username.isNotEmpty && newLoc.username != 'User' && newLoc.username != 'Player_777') {
+        _senderLastPacketTimes[newLoc.username] = DateTime.now();
+
         // Enforce admin mapping filter if set
         if (_adminAllowedSenders != null && !_adminAllowedSenders!.contains(newLoc.username)) {
           return;
@@ -220,6 +230,17 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
         }
       }
     }
+  }
+
+  bool _isSenderOnline(LocationDataModel sender) {
+    if (_isOffline) return false;
+    final now = DateTime.now();
+    final lastPacket = _senderLastPacketTimes[sender.username];
+    if (lastPacket != null && now.difference(lastPacket).inSeconds < 90) {
+      return true;
+    }
+    final diff = now.difference(sender.timestamp.toLocal());
+    return diff.inSeconds.abs() < 120;
   }
 
   void _animateToLocation(double lat, double lng) {
@@ -394,14 +415,13 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
   @override
   Widget build(BuildContext context) {
     final hasLocation = _location != null;
+    final isSelectedSenderOnline = _location != null && _isSenderOnline(_location!);
     final latStr = hasLocation ? _location!.latitude.toStringAsFixed(6) : '—';
     final lngStr = hasLocation ? _location!.longitude.toStringAsFixed(6) : '—';
     final accStr = hasLocation ? '${_location!.accuracy.toStringAsFixed(1)} m' : '—';
     final lastUpdatedStr = hasLocation
         ? DateFormat('hh:mm:ss a').format(_location!.timestamp.toLocal())
         : '—';
-
-    final isLive = _socketService.isConnected && !_isOffline && hasLocation;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -784,8 +804,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                 )
               else
                 ..._filteredRecords.map((sender) {
-                  final isSenderLive =
-                      isLive && _location?.username == sender.username;
+                  final isSenderLive = _isSenderOnline(sender);
                   final isSenderSelected = _selectedUsername == sender.username;
                   return UsernameRecordCard(
                     record: sender,
@@ -826,7 +845,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                   accuracy: accStr,
                   lastUpdated: lastUpdatedStr,
                   isoTimestamp: _location?.timestamp.toIso8601String(),
-                  isOffline: _isOffline,
+                  isOffline: !isSelectedSenderOnline,
                   onTapUser: () => _navigateToRecordDetails(_location!),
                 ),
                 const SizedBox(height: 14),
@@ -834,8 +853,8 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
 
               // Status Indicator Badge Widget
               ReceiverStatusBadge(
-                isLive: isLive,
-                isOffline: _isOffline,
+                isLive: isSelectedSenderOnline,
+                isOffline: _isOffline || !isSelectedSenderOnline,
               ),
               const SizedBox(height: 16),
 
