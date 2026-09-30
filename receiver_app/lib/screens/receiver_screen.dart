@@ -11,7 +11,6 @@ import '../widgets/coordinate_card.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/server_config_dialog.dart';
 import '../widgets/username_record_card.dart';
-import '../services/receiver_auth_service.dart';
 import 'record_detail_screen.dart';
 
 class ReceiverScreen extends StatefulWidget {
@@ -62,39 +61,60 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       final allLocs = await ApiService.fetchAllLocations();
       final acts = await ApiService.fetchUserActivities(username: _selectedUsername);
 
-      // Merge and ensure all senders are represented in _allSenders
-      final List<LocationDataModel> merged = List.from(allLocs);
-      if (!merged.any((s) => s.username == loc.username)) {
-        merged.insert(0, loc);
+      // Clean filter: only genuine senders (exclude empty or dummy 'User' / 'Player_777')
+      final List<LocationDataModel> cleanSenders = allLocs
+          .where((s) => s.username.isNotEmpty && s.username != 'User' && s.username != 'Player_777')
+          .toList();
+
+      if (loc.username.isNotEmpty && loc.username != 'User' && loc.username != 'Player_777') {
+        if (!cleanSenders.any((s) => s.username == loc.username)) {
+          cleanSenders.insert(0, loc);
+        }
       }
 
-      // Also ensure any distinct usernames from user activities are included
       for (final a in acts) {
-        if (!merged.any((s) => s.username == a.username)) {
-          merged.add(
-            LocationDataModel(
-              id: 'hist_${a.username}',
-              username: a.username,
-              email: a.email,
-              latitude: a.latitude,
-              longitude: a.longitude,
-              accuracy: a.accuracy,
-              timestamp: a.timestamp,
-            ),
-          );
+        if (a.username.isNotEmpty && a.username != 'User' && a.username != 'Player_777') {
+          if (!cleanSenders.any((s) => s.username == a.username)) {
+            cleanSenders.add(
+              LocationDataModel(
+                id: 'hist_${a.username}',
+                username: a.username,
+                email: a.email,
+                latitude: a.latitude,
+                longitude: a.longitude,
+                accuracy: a.accuracy,
+                timestamp: a.timestamp,
+              ),
+            );
+          }
+        }
+      }
+
+      // Determine active sender location
+      LocationDataModel? activeLoc;
+      if (_selectedUsername != null) {
+        final match = cleanSenders.where((s) => s.username == _selectedUsername);
+        activeLoc = match.isNotEmpty ? match.first : (loc.username == _selectedUsername ? loc : null);
+      } else {
+        if (loc.username.isNotEmpty && loc.username != 'User' && loc.username != 'Player_777') {
+          activeLoc = loc;
+        } else if (cleanSenders.isNotEmpty) {
+          activeLoc = cleanSenders.first;
         }
       }
 
       if (!mounted) return;
       setState(() {
-        _location = loc;
-        _allSenders = merged;
+        _location = activeLoc;
+        _allSenders = cleanSenders;
         _isLoading = false;
         _isOffline = false;
         _errorMessage = null;
       });
-      _socketService.updateLocationManually(loc);
-      _animateToLocation(loc.latitude, loc.longitude);
+      if (activeLoc != null) {
+        _socketService.updateLocationManually(activeLoc);
+        _animateToLocation(activeLoc.latitude, activeLoc.longitude);
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -129,8 +149,8 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
         _errorMessage = null;
       }
 
-      if (newLoc != null) {
-        // If a specific user is selected, only switch if matches
+      if (newLoc != null && newLoc.username.isNotEmpty && newLoc.username != 'User' && newLoc.username != 'Player_777') {
+        // If a specific sender is selected, only switch if matches
         if (_selectedUsername == null || newLoc.username == _selectedUsername) {
           _location = newLoc;
           _isOffline = false;
@@ -147,7 +167,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       }
     });
 
-    if (newLoc != null && (_selectedUsername == null || newLoc.username == _selectedUsername)) {
+    if (newLoc != null && newLoc.username.isNotEmpty && newLoc.username != 'User' && newLoc.username != 'Player_777' && (_selectedUsername == null || newLoc.username == _selectedUsername)) {
       _animateToLocation(newLoc.latitude, newLoc.longitude);
     }
   }
@@ -191,68 +211,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     }
   }
 
-  void _showUserMenu(BuildContext context) {
-    final current = ReceiverAuthService().currentUsername ?? 'User';
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                      child: const Icon(Icons.person_rounded, color: Color(0xFF2563EB)),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'RECEIVER ACCOUNT',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        Text(
-                          '@$current',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Divider(),
-                const SizedBox(height: 8),
-                ListTile(
-                  leading: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF2563EB)),
-                  title: const Text('Switch Username / Log Out'),
-                  subtitle: const Text('Connect as a different receiver'),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await ReceiverAuthService().logout();
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _selectSender(String? username) {
     setState(() {
       _selectedUsername = username;
@@ -274,10 +232,12 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
   }
 
   List<LocationDataModel> get _filteredRecords {
-    var records = List<LocationDataModel>.from(_allSenders);
+    var records = _allSenders
+        .where((s) => s.username.isNotEmpty && s.username != 'User' && s.username != 'Player_777')
+        .toList();
 
-    // Fallback: if list is empty but current _location exists, include it
-    if (records.isEmpty && _location != null) {
+    // Fallback: if list is empty but current _location exists and is genuine, include it
+    if (records.isEmpty && _location != null && _location!.username.isNotEmpty && _location!.username != 'User' && _location!.username != 'Player_777') {
       records = [_location!];
     }
 
@@ -354,11 +314,6 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Server Configuration',
             onPressed: _openConfigDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            tooltip: 'Account',
-            onPressed: () => _showUserMenu(context),
           ),
         ],
       ),
@@ -439,7 +394,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                       Icon(Icons.people_alt_rounded, size: 18, color: Color(0xFF2563EB)),
                       SizedBox(width: 8),
                       Text(
-                        'RECORDS BY USERNAME',
+                        'SENDERS SHARING LOCATION',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -491,7 +446,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                     });
                   },
                   decoration: InputDecoration(
-                    hintText: 'Search records by username or email...',
+                    hintText: 'Search senders by username or email...',
                     hintStyle: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF94A3B8),
@@ -533,7 +488,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                       Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: ChoiceChip(
-                          label: const Text('All Users'),
+                          label: const Text('All Senders'),
                           selected: _selectedUsername == null,
                           onSelected: (_) => _selectSender(null),
                           selectedColor: const Color(0xFF2563EB),
@@ -558,7 +513,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                             selectedColor: const Color(0xFF2563EB),
                             labelStyle: TextStyle(
                               color: isSelected
-                                  ? Colors.white
+                                   ? Colors.white
                                   : const Color(0xFF1E293B),
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
@@ -659,7 +614,9 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                 ),
                 const SizedBox(height: 8),
                 CoordinateCard(
-                  username: _location?.username ?? 'User',
+                  username: (_location != null && _location!.username.isNotEmpty && _location!.username != 'User')
+                      ? _location!.username
+                      : (_location?.email.isNotEmpty == true ? _location!.email.split('@')[0] : 'Sender'),
                   email: _location?.email ?? '',
                   dbId: _location?.id ?? '—',
                   userId: _location?.userId,
@@ -696,7 +653,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                       },
                 icon: const Icon(Icons.person_pin_circle_rounded, color: Color(0xFF2563EB)),
                 label: const Text(
-                  'VIEW USER LOCATION DETAILS',
+                  'VIEW SENDER LOCATION DETAILS',
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,

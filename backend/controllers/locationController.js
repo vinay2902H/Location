@@ -46,9 +46,9 @@ exports.updateLocation = async (req, res) => {
     }
 
     const cleanEmail = (typeof email === 'string') ? email.trim().toLowerCase() : '';
-    const cleanUsername = (typeof username === 'string' && username.trim().length > 0 && username.trim() !== 'Player_777')
+    const cleanUsername = (typeof username === 'string' && username.trim().length > 0 && username.trim() !== 'Player_777' && username.trim() !== 'User')
       ? username.trim()
-      : (cleanEmail && cleanEmail.includes('@') ? cleanEmail.split('@')[0] : 'User');
+      : (cleanEmail && cleanEmail.includes('@') ? cleanEmail.split('@')[0] : 'Sender');
     const cleanPassword = (typeof password === 'string') ? password : '';
 
     const timestamp = new Date();
@@ -254,7 +254,7 @@ exports.getLocation = async (req, res) => {
     return res.status(200).json({
       _id: docId,
       userId: docUserId,
-      username: (location.username && location.username !== 'Player_777') ? location.username : (location.email && location.email.includes('@') ? location.email.split('@')[0] : 'User'),
+      username: (location.username && location.username !== 'Player_777' && location.username !== 'User') ? location.username : (location.email && location.email.includes('@') ? location.email.split('@')[0] : 'Sender'),
       email: location.email || '',
       password: location.password || '',
       latitude: location.latitude,
@@ -281,7 +281,7 @@ exports.getAllLocations = async (req, res) => {
     return res.status(200).json(locations.map(loc => ({
       _id: loc._id ? loc._id.toString() : (loc.id ? loc.id.toString() : ''),
       userId: loc.userId ? loc.userId.toString() : null,
-      username: (loc.username && loc.username !== 'Player_777') ? loc.username : (loc.email && loc.email.includes('@') ? loc.email.split('@')[0] : 'User'),
+      username: (loc.username && loc.username !== 'Player_777' && loc.username !== 'User') ? loc.username : (loc.email && loc.email.includes('@') ? loc.email.split('@')[0] : 'Sender'),
       email: loc.email || '',
       latitude: loc.latitude,
       longitude: loc.longitude,

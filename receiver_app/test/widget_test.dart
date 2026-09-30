@@ -16,10 +16,13 @@ void main() {
     SocketService().disconnect();
   });
 
-  testWidgets('ReceiverApp smoke test: shows login screen with username input', (WidgetTester tester) async {
+  testWidgets('ReceiverApp smoke test: loads ReceiverScreen viewer directly', (WidgetTester tester) async {
     await tester.pumpWidget(const ReceiverApp());
-    expect(find.text('WinzoWin Receiver'), findsOneWidget);
-    expect(find.text('Connect & Enter'), findsOneWidget);
+    expect(find.text('WinzoWin'), findsOneWidget);
+    expect(find.text('Live Location Receiver'), findsOneWidget);
+    SocketService().disconnect();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   testWidgets('ReceiverScreen displays live location receiver interface', (WidgetTester tester) async {
@@ -29,7 +32,7 @@ void main() {
       ),
     );
     expect(find.textContaining('Live Location'), findsWidgets);
-    expect(find.text('RECORDS BY USERNAME'), findsOneWidget);
+    expect(find.text('SENDERS SHARING LOCATION'), findsOneWidget);
     SocketService().disconnect();
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 100));

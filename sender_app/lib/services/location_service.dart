@@ -273,9 +273,9 @@ class LocationService extends ChangeNotifier {
         prefs.getString('sender_email') ??
         prefs.getString('winzo_current_email') ??
         '';
-    final username = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777')
+    final username = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777' && rawUser != 'User')
         ? rawUser
-        : (email.contains('@') ? email.split('@')[0] : 'User');
+        : (email.contains('@') ? email.split('@')[0] : '');
     final password = auth.currentPassword ??
         prefs.getString('sender_password') ??
         prefs.getString('winzo_current_password') ??

@@ -8,7 +8,6 @@ const locationSchema = new mongoose.Schema({
   username: {
     type: String,
     required: true,
-    default: 'User',
     index: true
   },
   email: {

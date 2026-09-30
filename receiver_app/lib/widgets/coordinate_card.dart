@@ -15,7 +15,7 @@ class CoordinateCard extends StatelessWidget {
 
   const CoordinateCard({
     super.key,
-    this.username = 'User',
+    this.username = '',
     this.email = '',
     this.dbId = 'X',
     this.userId,
@@ -99,7 +99,7 @@ class CoordinateCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            username,
+                            username.isNotEmpty ? username : (email.isNotEmpty ? email.split('@')[0] : 'Sender'),
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,

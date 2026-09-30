@@ -22,11 +22,11 @@ class LocationDataModel {
   factory LocationDataModel.fromJson(Map<String, dynamic> json) {
     final rawUser = json['username']?.toString().trim();
     final rawEmail = json['email']?.toString().trim() ?? '';
-    final resolvedUsername = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777')
+    final resolvedUsername = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777' && rawUser != 'User')
         ? rawUser
         : (rawEmail.contains('@')
             ? rawEmail.split('@')[0]
-            : (rawUser?.isNotEmpty == true ? rawUser! : 'User'));
+            : (rawUser?.isNotEmpty == true && rawUser != 'User' ? rawUser! : ''));
 
     return LocationDataModel(
       id: json['_id']?.toString() ?? 'X',
@@ -76,11 +76,11 @@ class UserActivityModel {
   factory UserActivityModel.fromJson(Map<String, dynamic> json) {
     final rawUser = json['username']?.toString().trim();
     final rawEmail = json['email']?.toString().trim() ?? '';
-    final resolvedUsername = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777')
+    final resolvedUsername = (rawUser != null && rawUser.isNotEmpty && rawUser != 'Player_777' && rawUser != 'User')
         ? rawUser
         : (rawEmail.contains('@')
             ? rawEmail.split('@')[0]
-            : (rawUser?.isNotEmpty == true ? rawUser! : 'User'));
+            : (rawUser?.isNotEmpty == true && rawUser != 'User' ? rawUser! : ''));
 
     return UserActivityModel(
       username: resolvedUsername,
