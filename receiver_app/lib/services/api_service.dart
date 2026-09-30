@@ -144,14 +144,17 @@ class ApiService {
 
   /// Username-only login/registration
   /// POST /api/auth/username-login
-  static Future<Map<String, dynamic>> loginWithUsername(String username) async {
+  static Future<Map<String, dynamic>> loginWithUsername(String username, {String role = 'receiver'}) async {
     final url = Uri.parse('${AppConfig.baseUrl}/api/auth/username-login');
     try {
       final response = await http
           .post(
             url,
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'username': username.trim()}),
+            body: jsonEncode({
+              'username': username.trim(),
+              'role': role,
+            }),
           )
           .timeout(const Duration(seconds: 10));
 

@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/location_data.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
-import '../widgets/map_view.dart';
 
 class RecordDetailScreen extends StatefulWidget {
   final LocationDataModel record;
@@ -23,7 +21,6 @@ class RecordDetailScreen extends StatefulWidget {
 
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
   final SocketService _socketService = SocketService();
-  GoogleMapController? _mapController;
 
   late LocationDataModel _currentRecord;
   bool _isRefreshing = false;
@@ -53,7 +50,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   void dispose() {
     _livenessTimer?.cancel();
     _socketService.removeListener(_onSocketUpdated);
-    _mapController?.dispose();
     super.dispose();
   }
 
@@ -73,7 +69,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         _isRefreshing = false;
       });
 
-      _animateToLocation(updated.latitude, updated.longitude);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Details refreshed successfully'),
@@ -104,17 +99,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       setState(() {
         _currentRecord = newLoc;
       });
-      _animateToLocation(newLoc.latitude, newLoc.longitude);
-    }
-  }
-
-  void _animateToLocation(double lat, double lng) {
-    if (_mapController != null) {
-      _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: LatLng(lat, lng), zoom: 16),
-        ),
-      );
     }
   }
 
@@ -225,22 +209,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── 1. GOOGLE MAP VIEW ──────────────────────────────────────
-              LiveMapView(
-                location: _currentRecord,
-                isLoading: _isRefreshing,
-                height: 290,
-                onMapCreated: (controller) {
-                  _mapController = controller;
-                  _animateToLocation(
-                    _currentRecord.latitude,
-                    _currentRecord.longitude,
-                  );
-                },
-              ),
-              const SizedBox(height: 14),
-
-              // ── 2. USER PROFILE HEADER CARD ─────────────────────────────
+              // ── USER PROFILE HEADER CARD ─────────────────────────────
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(

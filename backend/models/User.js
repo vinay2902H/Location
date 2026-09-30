@@ -25,6 +25,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Password is required'],
   },
+  role: {
+    type: String,
+    enum: ['sender', 'receiver', 'admin'],
+    default: 'receiver',
+    index: true,
+  },
   lastLogin: {
     type: Date,
     default: Date.now,

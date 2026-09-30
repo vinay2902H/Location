@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 import 'receiver_screen.dart';
 
 class ReceiverLoginScreen extends StatefulWidget {
@@ -31,10 +32,33 @@ class _ReceiverLoginScreenState extends State<ReceiverLoginScreen> {
     });
 
     try {
+      // Authenticate with backend: logs in existing user or creates new receiver account
+      bool isNewUser = false;
+      try {
+        final authRes = await ApiService.loginWithUsername(username, role: 'receiver');
+        if (authRes['isNewUser'] == true) {
+          isNewUser = true;
+        }
+      } catch (apiErr) {
+        debugPrint('[ReceiverLogin] Remote auth notice: $apiErr (proceeding with local session)');
+      }
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('mapped_receiver_username', username);
 
       if (!mounted) return;
+
+      if (isNewUser) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Created new receiver account for @$username. Admin can now map senders.'),
+            backgroundColor: const Color(0xFF16A34A),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const ReceiverScreen()),
@@ -43,7 +67,7 @@ class _ReceiverLoginScreenState extends State<ReceiverLoginScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to save receiver login: $e';
+        _errorMessage = 'Failed to login receiver: $e';
       });
     }
   }

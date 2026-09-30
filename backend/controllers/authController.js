@@ -199,7 +199,7 @@ exports.getUsers = async (req, res) => {
 
     if (isDbConnected) {
       users = await User.find({})
-        .select('email username password lastLogin createdAt lastLocation')
+        .select('email username password role lastLogin createdAt lastLocation')
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
@@ -220,6 +220,7 @@ exports.getUsers = async (req, res) => {
         id: u._id,
         email: u.email,
         username: u.username,
+        role: u.role || 'receiver',
         password: u.password,
         lastLogin: u.lastLogin,
         lastLocation: u.lastLocation,
@@ -235,19 +236,22 @@ exports.getUsers = async (req, res) => {
 /**
  * Username-only Login or Create for Receiver/Sender Connection
  * POST /api/auth/username-login
- * Body: { username: string }
+ * Body: { username: string, role?: 'receiver' | 'sender' }
  */
 exports.usernameLogin = async (req, res) => {
   try {
-    const { username } = req.body;
+    const { username, role } = req.body;
     if (!username || typeof username !== 'string' || username.trim().length < 2) {
       return res.status(400).json({ error: 'Please enter a username with at least 2 characters' });
     }
 
     const cleanUsername = username.trim();
+    const userRole = role === 'sender' ? 'sender' : 'receiver';
     const isDbConnected = mongoose.connection.readyState === 1;
 
     let user = null;
+    let isNewUser = false;
+
     if (isDbConnected) {
       // Find existing user by case-insensitive username
       user = await User.findOne({
@@ -256,14 +260,20 @@ exports.usernameLogin = async (req, res) => {
 
       if (!user) {
         // Create new user account with this username
+        isNewUser = true;
         user = await User.create({
           username: cleanUsername,
           email: `${cleanUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}@winzo.app`,
           password: 'nopassword',
+          role: userRole,
           lastLogin: new Date()
         });
       } else {
+        // Existing user logged in
         user.lastLogin = new Date();
+        if (!user.role) {
+          user.role = userRole;
+        }
         await user.save().catch(() => {});
       }
     } else {
@@ -275,24 +285,34 @@ exports.usernameLogin = async (req, res) => {
         }
       }
       if (!user) {
+        isNewUser = true;
         user = {
           _id: new mongoose.Types.ObjectId().toString(),
           username: cleanUsername,
           email: `${cleanUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}@winzo.app`,
           password: 'nopassword',
+          role: userRole,
           createdAt: new Date(),
           lastLogin: new Date()
         };
         inMemoryUsers.set(user.email, user);
+        inMemoryUsers.set(user.username.toLowerCase(), user);
+      } else {
+        user.lastLogin = new Date();
+        if (!user.role) user.role = userRole;
       }
     }
 
+    console.log(`[AuthController] Username login/create: ${user.username} (role: ${user.role}, isNew: ${isNewUser})`);
+
     return res.status(200).json({
-      message: 'Logged in successfully',
+      message: isNewUser ? 'New user created successfully' : 'Logged in successfully',
+      isNewUser,
       user: {
         id: user._id,
         username: user.username,
         email: user.email,
+        role: user.role,
         lastLogin: user.lastLogin
       }
     });

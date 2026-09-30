@@ -967,9 +967,11 @@
               type="text"
               id="receiverUsernameInput"
               class="form-input"
+              list="receiverDatalist"
               placeholder="e.g. x or y"
               required
             />
+            <datalist id="receiverDatalist"></datalist>
             <div style="font-size:11px; color:#94a3b8; margin-top:6px;">
               Pick an existing receiver or type a new receiver username.
             </div>
@@ -1166,6 +1168,7 @@
           document.getElementById('badgeReceiversCount').innerText = knownReceivers.size;
 
           renderReceiversColumn();
+          updateReceiverDatalist();
           renderMappingsTable();
           renderSendersColumn();
         }
@@ -1210,7 +1213,11 @@
           if (udata && Array.isArray(udata.users)) {
             udata.users.forEach(u => {
               if (u.username && u.username !== 'Player_777' && u.username !== 'User') {
-                if (!availableSendersList.includes(u.username)) availableSendersList.push(u.username);
+                if (u.role === 'receiver') {
+                  knownReceivers.add(u.username.toLowerCase());
+                } else {
+                  if (!availableSendersList.includes(u.username)) availableSendersList.push(u.username);
+                }
               }
             });
           }
@@ -1218,12 +1225,22 @@
 
         document.getElementById('statSenderCount').innerText = availableSendersList.length;
         document.getElementById('badgeSendersCount').innerText = availableSendersList.length;
+        document.getElementById('statReceiverCount').innerText = knownReceivers.size;
+        document.getElementById('badgeReceiversCount').innerText = knownReceivers.size;
 
+        renderReceiversColumn();
+        updateReceiverDatalist();
         renderSendersColumn();
         renderSenderCheckboxes();
       } catch (e) {
         console.error('Failed to fetch locations:', e);
       }
+    }
+
+    function updateReceiverDatalist() {
+      const dl = document.getElementById('receiverDatalist');
+      if (!dl) return;
+      dl.innerHTML = Array.from(knownReceivers).map(r => `<option value="${r}">@${r}</option>`).join('');
     }
 
     // ── RENDER RECEIVERS COLUMN ─────────────────────────────────────────────
